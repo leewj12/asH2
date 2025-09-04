@@ -33,8 +33,8 @@ build/
 .vscode/
 
 # runtime uploads
-/src/main/resources/static/upload/as/
-/src/main/resources/static/upload/as/**
+#/src/main/resources/static/upload/as/
+#/src/main/resources/static/upload/as/**
 
 # 비밀번호 암호화
 src/main/resources/application-secrets.yml
