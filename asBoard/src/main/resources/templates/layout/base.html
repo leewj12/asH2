@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8" />
+    <title layout:title-pattern="$CONTENT_TITLE · AS 게시판">AS 게시판</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Jquery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- favicon -->
+<!--    <link rel="shortcut icon" href="/favicon.ico">-->
+</head>
+
+<body class="bg-gray-50 text-sm min-h-screen">
+<!-- 모바일 상단바 -->
+<header class="md:hidden fixed top-0 inset-x-0 z-40 bg-white/90 backdrop-blur border-b">
+    <div class="h-12 flex items-center justify-between px-4">
+        <button id="sb-open" class="p-2" aria-label="메뉴 열기">☰</button>
+        <a href="/as/list" class="font-semibold">AS 관리</a>
+        <span class="w-6 h-6"></span>
+    </div>
+</header>
+
+
+<!-- 사이드바 오버레이(모바일 전용) -->
+<div id="sb-backdrop"
+     class="fixed inset-0 bg-black/40 z-30 hidden md:hidden"></div>
+
+<!-- ✅ 데스크톱 토글 버튼 (모바일 숨김) -->
+<button id="sb-toggle-desktop"
+        class="hidden md:flex items-center gap-2 fixed top-3 left-3 z-50
+               bg-white/90 backdrop-blur border rounded px-3 h-9 shadow-sm
+               hover:bg-white"
+        type="button" aria-label="사이드바 토글">
+    ☰
+</button>
+
+<div class="flex">
+    <!-- ✅ 반응형/토글 사이드바 -->
+    <aside id="sidebar"
+           class="fixed inset-y-0 left-0 z-40
+                  w-64 lg:w-72 xl:w-80
+                  bg-white border-r overflow-y-auto
+                  -translate-x-full md:translate-x-0
+                  transition-transform duration-200 ease-out">
+        <!-- 상단 로고/타이틀 -->
+        <div class="sticky top-1 h-20 bg-white px-4 md:pl-16 py-3 font-bold text-xl border-b text-black-600">
+            <div class="flex items-center justify-between">
+                <a href="/as/dashboard" class="font-bold">AS 관리</a>
+                <button id="sb-close" class="md:hidden p-2" aria-label="메뉴 닫기">✕</button>
+            </div>
+        </div>
+
+        <!-- ✅ 로그인 상태 박스 -->
+        <div id="authBox" class="m-3 p-3 rounded-lg border bg-gray-50 text-sm">
+            <!-- JS가 채웁니다 -->
+            <div class="text-gray-500">확인 중...</div>
+        </div>
+
+        <!-- 네비게이션 -->
+        <nav class="p-3 space-y-1 text-base">
+            <a href="/as/dashboard"
+               class="block px-4 py-2 rounded hover:bg-gray-100"
+               th:classappend="${currentPath.startsWith('/as/dashboard')} ?
+              'bg-blue-100 text-blue-700' : ''">📊 대시보드</a>
+
+            <a href="/as/write"
+               class="block px-4 py-2 rounded hover:bg-gray-100"
+               th:classappend="${currentPath.startsWith('/as/write')} ?
+              'bg-blue-100 text-blue-700' : ''">📝 접수 등록</a>
+
+            <a href="/as/list"
+               class="block px-4 py-2 rounded hover:bg-gray-100"
+               th:classappend="${currentPath.startsWith('/as/list')} ?
+              'bg-blue-100 text-blue-700' : ''">📄 접수 목록</a>
+
+            <a href="/as/calendar"
+               class="block px-4 py-2 rounded hover:bg-gray-100"
+               th:classappend="${currentPath.startsWith('/as/calendar')} ?
+              'bg-blue-100 text-blue-700' : ''">📅 일정 관리</a>
+
+            <a href="/as/schedule"
+               class="block px-4 py-2 rounded hover:bg-gray-100"
+               th:classappend="${currentPath.startsWith('/as/schedule')} ?
+              'bg-blue-100 text-blue-700' : ''">📋 일정 내역</a>
+
+        </nav>
+
+    </aside>
+
+    <!-- ✅ 본문 -->
+    <main id="mainArea"
+          class="min-w-0 flex-1 p-4 md:p-6 pt-12 md:pt-6 md:ml-64 lg:ml-72 xl:ml-80"
+          layout:fragment="content"></main>
+
+</div>
+
+<script>
+    (function () {
+      const sidebar    = document.getElementById('sidebar');
+      const backdrop   = document.getElementById('sb-backdrop');
+      const openBtn    = document.getElementById('sb-open');   // 모바일 햄버거
+      const closeBtn   = document.getElementById('sb-close');  // 모바일 X
+      const deskToggle = document.getElementById('sb-toggle-desktop');
+      const main       = document.getElementById('mainArea');
+
+      const mqMd = window.matchMedia('(min-width: 768px)');
+      const isMobile = () => !mqMd.matches;
+
+      // 본문 좌측 마진(사이드바 폭과 동기)
+      const marginClasses = ['md:ml-64','lg:ml-72','xl:ml-80'];
+      const addMargins    = () => marginClasses.forEach(c => main.classList.add(c));
+      const removeMargins = () => marginClasses.forEach(c => main.classList.remove(c));
+
+      // 데스크탑에서 "닫힘"을 기억 (화면 리사이즈 시 유지)
+      let desktopCollapsed = false;
+
+      // ✅ 사이드바 토글 후 달력/컨텐츠에 리사이즈 알림 보내기 (트랜지션 고려)
+      const announceShellResize = (() => {
+        let t;
+        return () => {
+          clearTimeout(t);
+          t = setTimeout(() => {
+            window.dispatchEvent(new Event('shell:sidebar-resize'));
+          }, 230); // 사이드바 transition-duration:200ms + 여유
+        };
+      })();
+
+      const open = () => {
+        if (isMobile()) {
+          // 모바일: 사이드바 보여주고 오버레이 ON
+          sidebar.classList.remove('-translate-x-full');
+          backdrop.classList.remove('hidden');
+        } else {
+          // 데스크탑: md:-translate-x-full 제거 + md:translate-x-0 추가
+          sidebar.classList.remove('md:-translate-x-full', '-translate-x-full');
+          sidebar.classList.add('md:translate-x-0');
+          addMargins();
+          desktopCollapsed = false;
+        }
+        announceShellResize();            // ✅ 추가
+      };
+
+      const close = () => {
+        if (isMobile()) {
+          // 모바일: 사이드바 숨기고 오버레이 OFF
+          sidebar.classList.add('-translate-x-full');
+          backdrop.classList.add('hidden');
+        } else {
+          // 데스크탑: md:translate-x-0 제거 + md:-translate-x-full 추가
+          sidebar.classList.remove('md:translate-x-0');
+          sidebar.classList.add('md:-translate-x-full');
+          removeMargins();
+          desktopCollapsed = true;
+        }
+        announceShellResize();            // ✅ 추가
+      };
+
+      const toggleDesktop = () => {
+        if (isMobile()) return; // 모바일은 햄버거로만
+        if (sidebar.classList.contains('md:-translate-x-full')) {
+          open();
+        } else {
+          close();
+        }
+      };
+
+      // 버튼 이벤트
+      openBtn?.addEventListener('click', open);
+      closeBtn?.addEventListener('click', close);
+      backdrop?.addEventListener('click', close);
+      deskToggle?.addEventListener('click', toggleDesktop);
+
+      // ESC로 닫기
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') close();
+      });
+
+      // 반응형 전환 시 상태 정리
+      const handle = () => {
+        if (mqMd.matches) {
+          // 데스크탑 진입: 이전 상태 유지
+          if (desktopCollapsed) close(); else open();
+          deskToggle?.classList.remove('hidden');
+        } else {
+          // 모바일 진입: 기본 닫힘
+          deskToggle?.classList.add('hidden');
+          sidebar.classList.add('-translate-x-full');
+          sidebar.classList.remove('md:translate-x-0','md:-translate-x-full');
+          backdrop.classList.add('hidden');
+          removeMargins();
+          announceShellResize();            // ✅ 추가
+        }
+      };
+
+       sidebar.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'transform') announceShellResize();
+      });
+
+      mqMd.addEventListener?.('change', handle);
+      handle(); // 초기 적용
+    })();
+</script>
+
+<!-- jwt -->
+<script src="/js/auth.js"></script>
+
+<script>
+    (async function () {
+      const box = document.getElementById('authBox');
+      if (!box) return;
+
+      // 현재 경로를 redirect로 사용
+      const redirect = encodeURIComponent(location.pathname + location.search);
+
+      try {
+        // 여기선 401/리다이렉트 방지하려고 plain fetch 사용 (permitAll 기준)
+        const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        if (!res.ok) throw new Error('me fail');
+        const data = await res.json();
+
+        if (data.authenticated) {
+          box.innerHTML = `
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+<!--                <div class="text-gray-500">로그인 중</div>-->
+                <div class="font-semibold text-gray-900 truncate">@${data.username}</div>
+              </div>
+              <button id="btnLogout"
+                class="shrink-0 rounded-md border px-3 py-1.5 bg-red-600 text-white font-bold hover:bg-red-500">
+                로그아웃
+              </button>
+            </div>
+          `;
+          document.getElementById('btnLogout')?.addEventListener('click', async () => {
+            // auth.js의 doLogout 사용 (없으면 POST /api/auth/logout 호출)
+            if (window.doLogout) { await window.doLogout(); }
+            else {
+              await fetch('/api/auth/logout', { method:'POST', credentials:'same-origin' });
+              location.href = '/login';
+            }
+          });
+
+        } else {
+          box.innerHTML = `
+              <div class="space-y-2">
+                <div class="text-gray-700">로그인 후 이용하세요.</div>
+                <div class="flex items-center gap-2">
+                  <a class="shrink-0 rounded-md bg-slate-900 text-white px-3 py-1.5 hover:bg-slate-800"
+                     href="/login?redirect=${redirect}">
+                    로그인
+                  </a>
+                  <a class="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                     href="/signup?redirect=${redirect}">
+                    회원가입
+                  </a>
+                </div>
+              </div>
+          `;
+        }
+      } catch (e) {
+        // 실패 시 안전하게 로그인 버튼만 노출
+        box.innerHTML = `
+            <div class="space-y-2">
+              <div class="text-gray-700">로그인 상태를 확인할 수 없습니다.</div>
+              <div class="flex items-center gap-2">
+                <a class="shrink-0 rounded-md bg-slate-900 text-white px-3 py-1.5 hover:bg-slate-800"
+                   href="/login?redirect=${redirect}">
+                  로그인
+                </a>
+                <a class="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-slate-700 hover:bg-slate-50"
+                   href="/signup?redirect=${redirect}">
+                  회원가입
+                </a>
+              </div>
+            </div>
+        `;
+      }
+    })();
+</script>
+
+</body>
+</html>

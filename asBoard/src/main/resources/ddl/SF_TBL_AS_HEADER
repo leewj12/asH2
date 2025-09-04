@@ -1,0 +1,16 @@
+CREATE TABLE wjlee.dbo.SF_TBL_AS_HEADER (
+    AS_ID           BIGINT IDENTITY(1,1) NOT NULL,         -- AS 고유 ID
+    FARM_CODE       NVARCHAR(6) NOT NULL,                  -- 농장 코드
+    AS_TYPE         NVARCHAR(64) NULL,                     -- AS 유형
+    REQ_USER        NVARCHAR(32) NULL,                     -- 접수자
+    AS_MANAGER      NVARCHAR(32) NULL,                     -- 담당자
+    REQ_DATE        DATETIME NULL,                         -- 접수일
+    REG_DATE        DATETIME DEFAULT GETDATE() NULL,       -- 등록일시
+    UPD_DATE        DATETIME DEFAULT GETDATE() NULL,       -- 수정일시
+    REQ_CONTENT     VARCHAR(MAX) NULL,                     -- 접수 내용
+    AS_RESULT       VARCHAR(MAX) NULL,                     -- AS 전체 완료 결과
+    ETC             VARCHAR(MAX) NULL,                     -- 비고
+    STATUS_FLAG     NVARCHAR(1) NOT NULL DEFAULT '1',      -- ✅ 상태: 대기/진행/완료(1), 보류(0)
+    USE_FLAG        NVARCHAR(1) NOT NULL DEFAULT '1',      -- ✅ 사용여부: 사용(1), 삭제(0)
+    CONSTRAINT PK_AS_HEADER PRIMARY KEY (AS_ID)
+);

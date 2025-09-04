@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}"
+      layout:fragment="content">
+<head>
+    <meta charset="UTF-8" />
+    <title>As 상세</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+
+<body class="bg-gray-50 p-4 md:p-6">
+<div class="mx-auto w-full bg-white p-4 md:p-6 rounded-2xl shadow max-w-[1500px]">
+    <h2 class="text-xl md:text-2xl font-semibold mb-4 md:mb-6 border-b pb-2">As 상세</h2>
+
+    <!-- ───────── 상단 메타: 2열 그리드 ───────── -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">농장</label>
+            <p class="mt-1 border rounded px-3 py-2 truncate"
+               th:text="${as.farmName != null ? as.farmName + ' (' + as.farmCode + ')' : as.farmCode}"
+               th:title="${as.farmName != null ? as.farmName + ' (' + as.farmCode + ')' : as.farmCode}"></p>
+        </div>
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">사업명</label>
+            <p class="mt-1 border rounded px-3 py-2 truncate"
+               th:text="${#strings.isEmpty(as.projectName) ? '-' : as.projectName}"
+               th:title="${as.projectName}"></p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">지역</label>
+            <p class="mt-1 border rounded px-3 py-2 truncate"
+               th:text="${#strings.isEmpty(as.regionName) ? '-' : as.regionName}"
+               th:title="${as.regionName}"></p>
+        </div>
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">주소</label>
+            <p class="mt-1 border rounded px-3 py-2 truncate"
+               th:text="${#strings.isEmpty(as.farmAddr1 + ' ' + as.farmAddr2) ? '-' : as.farmAddr1 + ' ' + as.farmAddr2}"
+               th:title="${as.farmAddr1 + ' ' + as.farmAddr2}"></p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">대표</label>
+            <p class="mt-1 border rounded px-3 py-2"
+               th:text="${#strings.isEmpty(as.farmerName) ? '-' : as.farmerName}"></p>
+        </div>
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">연락처</label>
+            <p class="mt-1 border rounded px-3 py-2"
+               th:text="${#strings.isEmpty(as.phoneNumb) ? '-' : as.phoneNumb}"></p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4">
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">접수자</label>
+            <p class="mt-1 border rounded px-3 py-2"
+               th:text="${#strings.isEmpty(as.reqUser) ? '-' : as.reqUser}"></p>
+        </div>
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">접수일</label>
+            <p class="mt-1 border rounded px-3 py-2"
+               th:text="${#strings.isEmpty(as.reqDate) ? '-' : as.reqDate}"></p>
+        </div>
+    </div>
+
+    <!-- ───────── 담당/진행/문제유형: 3열로 묶어서 한 줄에 ───────── -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-6">
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">담당자</label>
+            <p class="mt-1 border rounded px-3 py-2"
+               th:text="${#strings.isEmpty(as.asManager) ? '-' : as.asManager}"></p>
+        </div>
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">진행도</label>
+            <p class="mt-1 border rounded px-3 py-2"
+               th:text="${#strings.isEmpty(as.statusLabel) ? '-' : as.statusLabel}"
+               th:classappend="
+                 ${as.statusLabel == '대기'} ? ' text-gray-800' :
+                 (${as.statusLabel == '임박'} ? ' text-orange-500' :
+                 (${as.statusLabel == '진행중'} ? ' text-green-600' :
+                 (${as.statusLabel == '완료'} ? ' text-blue-600' :
+                 (${as.statusLabel == '지연'} ? ' text-red-600' :
+                 (${as.statusLabel == '보류'} ? ' text-gray-400' : '')))))">
+            </p>
+        </div>
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">문제 유형</label>
+<!--            <div class="mt-1">-->
+<!--                <span class="inline-flex items-center text-[12px] px-2 py-1 rounded-full border truncate max-w-full"-->
+                <p class="mt-1 border rounded px-3 py-2"
+                      th:text="${#strings.isEmpty(as.asType) ? '-' : as.asType}"
+                      th:classappend="${#strings.isEmpty(as.asType)} ? ' text-slate-500' :
+                        (${as.asType == '장비'} ? ' text-blue-700' :
+                        (${as.asType == '네트워크'} ? ' text-indigo-700' :
+                        (${as.asType == '모듈'} ? ' text-emerald-700' :
+                        ' text-slate-700')))">
+                    -
+<!--                </span>-->
+                </p>
+<!--            </div>-->
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-6">
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">등록일</label>
+            <p class="mt-1 border rounded px-3 py-2"
+               th:text="${#temporals.format(as.regDate, 'yyyy-MM-dd HH:mm')} ?: '-' "></p>
+        </div>
+        <div class="min-w-0">
+            <label class="block text-sm font-medium text-gray-700">수정일</label>
+            <p class="mt-1 border rounded px-3 py-2"
+               th:text="${#temporals.format(as.updDate, 'yyyy-MM-dd HH:mm')} ?: '-' "></p>
+        </div>
+    </div>
+
+    <!-- 접수 내용 -->
+    <section class="mb-6">
+        <label class="block text-sm font-medium text-gray-700">접수 내용</label>
+        <textarea class="w-full mt-1 border rounded px-3 py-2" rows="3" readonly
+                  th:text="${#strings.isEmpty(as.reqContent) ? '-' : as.reqContent}"></textarea>
+    </section>
+
+    <!-- AS 일정 (카드형, 상세 뷰에 맞게 정리) -->
+    <section class="mb-6">
+        <div class="flex items-center justify-between mb-2">
+            <label class="text-base md:text-lg font-semibold text-gray-800">AS 일정</label>
+<!--            <span class="text-xs text-gray-400" th:if="${as.scheduleList != null and !as.scheduleList.isEmpty()}">완료되지 않은 일정은 버튼으로 완료 처리</span>-->
+        </div>
+
+        <div th:if="${as.scheduleList != null and !as.scheduleList.isEmpty()}"
+             class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+
+            <div th:each="s, iter : ${as.scheduleList}"
+                 class="rounded-xl border border-gray-200 bg-white shadow p-3 md:p-4"
+                 th:attr="
+                   data-sid=${s.scheduleId},
+                   data-plan=${s.planDate != null ? #temporals.format(s.planDate, 'yyyy-MM-dd''T''HH:mm:ss') : ''},
+                   data-content=${s.asContent}">
+
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                        <span class="text-sm font-medium text-gray-800" th:text="${'일정 #' + iter.count}">일정</span>
+                    </div>
+                    <span th:if="${s.completeDate != null}" class="text-xs text-blue-600">완료됨</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-3">
+                    <div>
+                        <label class="text-sm text-gray-500">예정일</label>
+                        <div class="border px-3 py-2 rounded text-gray-900 text-sm">
+                            <span th:text="${s.planDate != null ? #temporals.format(s.planDate, 'yyyy-MM-dd HH:mm') : '-'}">-</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-500">완료일</label>
+                        <div class="border px-3 py-2 rounded text-gray-900 text-sm">
+                            <span data-complete-span
+                                  th:text="${s.completeDate != null ? #temporals.format(s.completeDate, 'yyyy-MM-dd HH:mm') : '-'}">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="text-sm text-gray-500 mb-1 block">점검 내용</label>
+                    <textarea readonly rows="4"
+                              class="w-full border rounded px-3 py-2 text-gray-800 text-sm"
+                              th:text="${s.asContent != null and !s.asContent.isEmpty() ? s.asContent : '-'}">-</textarea>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button th:if="${s.completeDate == null}"
+                            type="button"
+                            class="btn-complete-now inline-flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-sm">
+                        ✓ 완료
+                    </button>
+                    <span th:if="${s.completeDate == null}"
+                          class="text-xs text-gray-400">※ 클릭 시 완료일이 현재 시각으로 저장됩니다.</span>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${as.scheduleList == null or as.scheduleList.isEmpty()}"
+             class="mt-2 px-4 py-3 bg-gray-100 border rounded text-gray-500 text-start">
+            등록된 일정이 없습니다.
+        </div>
+    </section>
+
+    <!-- 장비 목록 (카드형) -->
+    <section class="mb-6">
+        <div class="flex items-center justify-between mb-2">
+            <label class="block font-medium text-gray-700">장비 목록</label>
+        </div>
+
+        <div th:if="${not #lists.isEmpty(as.equipList)}"
+             class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div th:each="equip : ${as.equipList}"
+                 class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+
+                <div class="flex items-center justify-between gap-2">
+                    <div class="font-semibold truncate"
+                         th:text="${#strings.isEmpty(equip.eqmntName) ? '미등록 장비' : equip.eqmntName}">
+                        장비명
+                    </div>
+                    <span
+                            class="inline-flex items-center text-[11px] px-2 py-1 rounded-full border truncate max-w-[160px]"
+                            th:text="${
+                #strings.toUpperCase(equip.tableName) == 'UNREGISTERED'
+                  ? '미등록 장비'
+                  : ( !#strings.isEmpty(equip.tableName) ? equip.tableName : 'UNKNOWN' )
+              }"
+                            th:classappend="${
+                #strings.toUpperCase(equip.tableName) == 'UNREGISTERED' ?
+                  ' bg-rose-50 text-rose-700 border-rose-200' :
+                (#strings.toUpperCase(equip.tableName) == 'SF_TBL_EQMNT' ?
+                  ' bg-blue-50 text-blue-700 border-blue-200' :
+                  ' bg-slate-100 text-slate-700 border-slate-200')
+              }">
+            UNREGISTERED
+          </span>
+                </div>
+
+                <div class="mt-2 space-y-1.5 text-sm" th:if="${#strings.toUpperCase(equip.tableName) != 'UNREGISTERED'}">
+                    <div th:if="${#strings.toUpperCase(equip.tableName) == 'SF_TBL_EQMNT'}">
+                        <div class="flex">
+                            <span class="w-24 text-gray-500 shrink-0">EQMNT_KIND</span>
+                            <span class="text-gray-800 break-all"
+                                  th:text="${equip.eqmntKind != null ? equip.eqmntKind : '-'}">-</span>
+                        </div>
+                        <div class="flex">
+                            <span class="w-24 text-gray-500 shrink-0">EQMNT_SEQ</span>
+                            <span class="text-gray-800 break-all"
+                                  th:text="${equip.eqmntSeq != null ? equip.eqmntSeq : '-'}">-</span>
+                        </div>
+                        <div class="flex">
+                            <span class="w-24 text-gray-500 shrink-0">설치일</span>
+                            <span class="text-gray-800"
+                                  th:text="${equip.useDate != null ? #temporals.format(equip.useDate, 'yyyy-MM-dd') : '-'}">-</span>
+                        </div>
+                    </div>
+
+                    <div th:if="${#strings.toUpperCase(equip.tableName) != 'SF_TBL_EQMNT'}">
+                        <div class="flex">
+                            <span class="w-24 text-gray-500 shrink-0">EQMNT_SEQ</span>
+                            <span class="text-gray-800 break-all"
+                                  th:text="${equip.eqmntSeq != null ? equip.eqmntSeq : '-'}">-</span>
+                        </div>
+                        <div class="flex">
+                            <span class="w-24 text-gray-500 shrink-0">SUB_SEQ</span>
+                            <span class="text-gray-800 break-all"
+                                  th:text="${equip.subSeq != null ? equip.subSeq : '-'}">-</span>
+                        </div>
+                        <div class="flex">
+                            <span class="w-24 text-gray-500 shrink-0">설치일</span>
+                            <span class="text-gray-800"
+                                  th:text="${equip.useDate != null ? #temporals.format(equip.useDate, 'yyyy-MM-dd') : '-'}">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${#lists.isEmpty(as.equipList)}"
+             class="mt-1 px-3 py-2 border rounded text-gray-500 text-start">
+            등록된 장비가 없습니다.
+        </div>
+    </section>
+
+    <!-- 조치 결과 / 비고 (문제 유형은 상단 배지로 이동) -->
+    <section class="mb-4">
+        <label class="block font-medium text-gray-700">조치 결과</label>
+        <textarea class="w-full mt-1 border rounded px-3 py-2" rows="3" readonly
+                  th:text="${#strings.isEmpty(as.asResult) ? '-' : as.asResult}"></textarea>
+    </section>
+
+    <section class="mb-6">
+        <label class="block font-medium text-gray-700">비고</label>
+        <textarea class="w-full mt-1 border rounded px-3 py-2" rows="3" readonly
+                  th:text="${#strings.isEmpty(as.etc) ? '-' : as.etc}"></textarea>
+    </section>
+
+    <!-- 첨부파일 (미리보기 카드 스타일) -->
+    <section class="mb-6">
+        <div class="flex items-center justify-between">
+            <label class="block font-medium text-gray-700">첨부파일</label>
+            <button id="downloadAllBtn" class="hidden text-sm px-3 py-1 rounded border hover:bg-gray-50">전체 다운로드</button>
+        </div>
+        <ul id="filePreviewList" class="mt-2 space-y-2 text-sm text-gray-700"></ul>
+        <div id="noFiles" class="mt-2 px-4 py-3 bg-gray-50 border rounded text-gray-500 text-start hidden">
+            첨부된 파일이 없습니다.
+        </div>
+    </section>
+
+    <!-- 액션 -->
+    <div class="mt-6 flex flex-col-reverse sm:flex-row justify-center sm:justify-end gap-2">
+        <a th:href="@{'/as/edit/' + ${as.asId}}"
+           class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-center">수정</a>
+        <button th:onclick="|deleteAs(${as.asId})|"
+                class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">삭제</button>
+    </div>
+</div>
+
+<!-- 삭제 -->
+<script>
+    function deleteAs(asId) {
+      if (!confirm('정말 삭제하시겠습니까?')) return;
+      fetch(`/api/as/delete/${asId}`, { method: 'DELETE' })
+        .then(res => {
+          if (res.ok) { alert('삭제되었습니다'); location.href = '/as/list'; }
+          else { alert('삭제 실패'); }
+        })
+        .catch(err => { alert('요청 오류 발생'); console.error(err); });
+    }
+</script>
+
+<!-- 완료(지금) 처리 -->
+<script>
+    function formatYmdHm(date){
+      const p = n => (n<10 ? '0'+n : ''+n);
+      return date.getFullYear()+'-'+p(date.getMonth()+1)+'-'+p(date.getDate())+' '+p(date.getHours())+':'+p(date.getMinutes());
+    }
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.btn-complete-now');
+      if (!btn) return;
+
+      const card = btn.closest('.rounded-xl');
+      const sid   = card.getAttribute('data-sid');
+      const plan  = card.getAttribute('data-plan');     // ISO(yyyy-MM-ddTHH:mm:ss) or ''
+      const cont  = card.getAttribute('data-content');  // string or ''
+
+      if (!sid) return;
+      if (!confirm('이 일정을 완료 처리할까요?\n(완료일 = 현재 시각)')) return;
+
+      const orig = btn.textContent;
+      btn.disabled = true; btn.textContent = '처리중...';
+
+      try {
+        const payload = {
+          scheduleId: Number(sid),
+          planDate:   plan || null,
+          asContent:  cont || null
+          // completeDate는 서버에서 now()로 강제 설정
+        };
+
+        const res = await fetch(`/api/as/schedule/${sid}/complete`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await res.text().catch(()=> '요청 실패'));
+        const data = await res.json(); // { completeDate: 'yyyy-MM-dd HH:mm' }
+
+        const span = card.querySelector('[data-complete-span]');
+        if (span) span.textContent = data.completeDate || formatYmdHm(new Date());
+
+        // 버튼 제거 + "완료됨" 표시
+        const container = btn.parentElement;
+        btn.remove();
+        const tag = document.createElement('span');
+        tag.className = 'text-xs text-blue-600';
+        tag.textContent = '완료됨';
+        container.appendChild(tag);
+
+        // 상태 재계산 반영
+        location.reload();
+
+      } catch (err) {
+        alert('완료 처리 실패: ' + err.message);
+        btn.disabled = false; btn.textContent = orig;
+      }
+    });
+</script>
+
+<!-- 첨부파일 미리보기 -->
+<script th:inline="javascript">
+    (function () {
+      function getFileIcon(ext) {
+        const m = { jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', webp:'🖼️', bmp:'🖼️',
+                    pdf:'📄', doc:'📄', docx:'📄', ppt:'📊', pptx:'📊',
+                    xls:'📊', xlsx:'📊', zip:'🗜️', txt:'📃' };
+        return `<span>${m[ext] || '📁'}</span>`;
+      }
+
+      const files = /*[[${as.fileList}]]*/ [];
+      const listEl = document.getElementById('filePreviewList');
+      const noEl   = document.getElementById('noFiles');
+      const allBtn = document.getElementById('downloadAllBtn');
+
+      if (!files || files.length === 0) { noEl.classList.remove('hidden'); return; }
+      allBtn.classList.remove('hidden');
+
+      files.forEach((file) => {
+        const ext  = (file.originalName || '').split('.').pop().toLowerCase();
+        const icon = getFileIcon(ext);
+        const size = file.fileSize ? (file.fileSize / 1024).toFixed(1) + ' KB' : '';
+        const url  = `${file.filePath}/${file.uuidName}`;
+
+        const li = document.createElement('li');
+        li.className = 'flex items-center justify-between border border-gray-200 rounded px-3 py-2 bg-white';
+        li.innerHTML = `
+          <div class="flex items-center gap-2 min-w-0">
+            ${icon}
+            <a href="${url}" class="text-blue-600 hover:underline truncate max-w-[220px] sm:max-w-[320px]"
+               target="_blank" rel="noopener" title="${file.originalName || ''}">
+              ${file.originalName || ''}
+            </a>
+            <span class="text-gray-400 text-xs">${size ? '(' + size + ')' : ''}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="${url}" target="_blank" rel="noopener"
+               class="text-sm px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">보기</a>
+            <a href="${url}" download="${file.originalName || ''}"
+               class="text-sm px-2 py-1 rounded border hover:bg-gray-50">다운로드</a>
+          </div>`;
+        listEl.appendChild(li);
+      });
+
+      // 전체 다운로드(순차 실행)
+      allBtn.addEventListener('click', () => {
+        files.forEach((file, i) => {
+          const a = document.createElement('a');
+          a.href = `${file.filePath}/${file.uuidName}`;
+          a.download = file.originalName || '';
+          document.body.appendChild(a);
+          setTimeout(() => { a.click(); a.remove(); }, i * 220);
+        });
+      });
+    })();
+</script>
+
+</body>
+</html>

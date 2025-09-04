@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}"
+      layout:fragment="content">
+<head>
+    <meta charset="UTF-8" />
+    <title>캘린더</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+    <style>
+        /* ========== FullCalendar 이벤트 칩 ========== */
+        .fc .fc-daygrid-event.fc-as{
+          border:1px solid #d1d5db !important;
+          border-left-width:1px !important;
+          box-shadow:none !important;
+          padding:2px 6px !important;
+          border-radius:10px !important;
+          overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+          color:#111827 !important;
+          background-clip: padding-box;
+        }
+        @media (max-width:767px){
+          .fc .fc-daygrid-event.fc-as{ padding:1px 4px !important; }
+        }
+        .fc .fc-daygrid-event.fc-as .fc-m-time{ font-weight:700; font-variant-numeric:tabular-nums; }
+        .fc .fc-daygrid-event.fc-as .fc-line{ display:inline; }
+
+        #calendar .fc-daygrid-event.fc-as .fc-event-main,
+        #calendar .fc-daygrid-event.fc-as .fc-m-time,
+        #calendar .fc-daygrid-event.fc-as .fc-m-title,
+        #calendar .fc-daygrid-event.fc-as a,
+        #calendar .fc-daygrid-event.fc-as a *{
+          color:#111827 !important;
+          -webkit-text-fill-color:#111827 !important;
+        }
+        #calendar .fc-list-event .fc-list-event-time,
+        #calendar .fc-list-event .fc-list-event-title a{ color:#111827 !important; }
+
+        /* ========== 팔레트 ========== */
+        .farm-color-0  { --c:#1f77b4; }
+        .farm-color-1  { --c:#ff7f0e; }
+        .farm-color-2  { --c:#2ca02c; }
+        .farm-color-3  { --c:#d62728; }
+        .farm-color-4  { --c:#9467bd; }
+        .farm-color-5  { --c:#8c564b; }
+        .farm-color-6  { --c:#e377c2; }
+        .farm-color-7  { --c:#7f7f7f; }
+        .farm-color-8  { --c:#bcbd22; }
+        .farm-color-9  { --c:#17becf; }
+        .farm-color-10 { --c:#aec7e8; }
+        .farm-color-11 { --c:#ffbb78; }
+        .farm-color-12 { --c:#98df8a; }
+        .farm-color-13 { --c:#ff9896; }
+        .farm-color-14 { --c:#c5b0d5; }
+        .farm-color-15 { --c:#c49c94; }
+        .farm-color-16 { --c:#f7b6d2; }
+        .farm-color-17 { --c:#c7c7c7; }
+        .farm-color-18 { --c:#dbdb8d; }
+        .farm-color-19 { --c:#9edae5; }
+
+        .fc .fc-daygrid-event.fc-as[class*="farm-color-"]{
+          background:#e9eef5 !important;
+          border-color:var(--c) !important;
+          --bg:  color-mix(in srgb, var(--c), white 80%);
+          --bd:  color-mix(in srgb, var(--c) 88%, black);
+          background: var(--bg) !important;
+          border-color: var(--bd) !important;
+          border-left-color: color-mix(in srgb, var(--c) 92%, black) !important;
+        }
+        .fc .fc-list-event[class*="farm-color-"] .fc-list-event-dot{
+          border-color: color-mix(in srgb, var(--c) 88%, black) !important;
+        }
+
+        /* 주말 표시 */
+        .fc-day-sun{ color:red !important; }
+        .fc-day-sat{ color:blue !important; }
+        .fc-daygrid-body .fc-day-sun{ background:#ffecec; }
+        .fc-daygrid-body .fc-day-sat{ background:#eaf4ff; }
+
+        /* ========== 주간 보드 ========== */
+        .week-grid-wrap {
+          container-type: inline-size;
+          overflow-x: hidden;                     /* 가로 스크롤 차단 */
+          /* ⬇️ 레이아웃의 본문 마진(=사이드바 폭)만큼 실제 표시 폭을 줄여줌 */
+          width: min(100%, calc(100vw - var(--aside-offset, 0px)));
+        }
+
+        .week-grid { box-sizing: border-box; min-width: 0; grid-auto-flow: row; }
+        .week-item { min-width: 0; }
+
+        .week-grid{
+          display:grid;
+          grid-template-columns:repeat(var(--week-cols,7), minmax(160px,1fr));
+          gap:12px; width:100%;
+        }
+
+        /* 공간이 부족하면 JS가 data-fluid="1"을 달아 auto-fit 전환 → 자동 줄바꿈 */
+        .week-grid[data-fluid="1"]{
+          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        }
+
+        @container (max-width: 1400px) { .week-grid{ grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); } }
+        @container (max-width: 1100px) { .week-grid{ grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); } }
+        @container (max-width: 900px)  { .week-grid{ grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); } }
+
+        .week-card-min{ min-height:260px; }
+        @media (min-width:1024px){ .week-card-min{ min-height:320px; } }
+
+        .week-item{
+          border-left:6px solid transparent;
+          padding:8px 10px; border-radius:10px; text-align:left; background:#fff;
+        }
+        @media (max-width:767px){
+          .week-item{ border-left-width:5px; padding:6px 8px; }
+        }
+        .week-item[class*="farm-color-"]{
+          --bg:  color-mix(in srgb, var(--c), white 86%);
+          --bar: color-mix(in srgb, var(--c) 75%, black);
+          --ol:  color-mix(in srgb, var(--c), white 70%);
+          background: var(--bg);
+          border-left-color: var(--bar);
+          box-shadow: inset 0 0 0 1px var(--ol);
+        }
+        .week-item.pattern-alt{
+          background-image:
+            linear-gradient(transparent, transparent),
+            repeating-linear-gradient(45deg,
+              color-mix(in srgb, var(--c), white 92%) 0 6px,
+              transparent 6px 12px);
+          background-blend-mode: normal;
+        }
+
+        .no-events{
+          font-size:12px; color:#6b7280; text-align:center;
+          padding:2rem; border:1px solid #e5e7eb; border-radius:8px; background:#f9fafb;
+        }
+    </style>
+</head>
+<body>
+<div class="mx-auto w-full max-w-[1700px]">
+    <!-- 월간 캘린더 -->
+    <div class="my-8">
+        <h2 class="text-lg font-semibold mb-3">월간 일정</h2>
+        <div id="calendar" class="bg-white p-4 shadow rounded"></div>
+    </div>
+
+    <!-- 주간 일정표 -->
+    <h2 class="text-lg font-semibold mb-3">주간 일정표</h2>
+
+    <div class="week-grid-wrap" id="weekGridWrap">
+        <div th:if="${visibleWeekList != null}"
+             class="week-grid"
+             id="weekGrid"
+             th:with="cols=${visibleWeekList.size()}"
+             th:attr="data-base-cols=${cols}"
+             th:style="'--week-cols:' + ${cols}">
+
+            <!-- 날짜 카드 -->
+            <div th:each="day : ${visibleWeekList}"
+                 class="bg-white p-3 rounded shadow week-card-min flex flex-col gap-2"
+                 th:with="dayStr=${#temporals.format(day,'yyyy-MM-dd')}">
+
+                <h3 class="text-sm font-bold mb-1 text-gray-700"
+                    th:text="${#temporals.format(day,'yyyy-MM-dd (E)', T(java.util.Locale).KOREAN)}"></h3>
+
+                <div class="flex flex-col gap-1"
+                     th:with="dayList=${calendarScheduleList.?[
+               #temporals.format(planDate,'yyyy-MM-dd') == #vars.dayStr
+             ]}">
+
+                    <!-- 일정 목록 -->
+                    <div th:each="sch : ${dayList}"
+                         class="week-item cursor-pointer hover:opacity-95 text-sm"
+                         th:attr="data-farm-code=${#strings.trim(#strings.toString(sch.farmCode))}"
+                         th:onclick="|location.href='/as/detail/' + ${sch.asId}|">
+
+                        <div class="font-semibold truncate" th:text="${sch.farmName}"></div>
+                        <div class="text-xs text-gray-600 truncate" th:text="${sch.farmCode}"></div>
+                        <div class="text-xs text-gray-500 truncate" th:text="${sch.regionName}"></div>
+                        <div class="text-xs text-gray-700 mt-0.5"
+                             th:text="${#temporals.format(sch.planDate,'HH:mm')}"></div>
+                    </div>
+
+                    <!-- 일정 없음 -->
+                    <div th:if="${#lists.isEmpty(dayList)}" class="no-events">일정 없음</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FullCalendar + 주간 보드 스크립트 -->
+<script th:inline="javascript">
+    const calendarScheduleList = /*[[${calendarScheduleList}]]*/ [];
+    const farmColorMap = /*[[${farmColorMap}]]*/ {}; // {farmCode: 0..19}
+    const isMobile = () => window.matchMedia('(max-width: 767px)').matches;
+
+    function eventContent(arg){
+      const view = arg.view.type;
+      const time  = arg.timeText ? `<span class="fc-m-time">${arg.timeText}</span>` : '';
+      const title = arg.event.title ? `<span class="fc-m-title" title="${arg.event.title}">${arg.event.title}</span>` : '';
+      if (view.includes('list')) return { html:`<span class="fc-line">${time} ${title}</span>` };
+      return isMobile() ? { html:`<span class="fc-line">${time}</span>` }
+                        : { html:`<span class="fc-line">${time} ${title}</span>` };
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const el = document.getElementById('calendar');
+      const cal = new FullCalendar.Calendar(el, {
+        initialView: 'dayGridMonth',
+        locale: 'ko',
+        firstDay: 1,
+        height: 'auto',
+        expandRows: true,
+        handleWindowResize: false,
+        eventDisplay: 'block',
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: 'dayGridMonth,listWeek'
+        },
+        eventTimeFormat: { hour:'2-digit', minute:'2-digit', hour12:false },
+        eventContent,
+        events: calendarScheduleList.map(s => {
+          const key = (s.farmCode ?? '').toString().trim();
+          const idx = (farmColorMap && farmColorMap[key]) ?? 0;
+          return {
+            title: s.farmName,
+            start: s.planDate,
+            url  : '/as/detail/' + s.asId,
+            classNames: ['fc-as', `farm-color-${idx}`]
+          };
+        }),
+        eventClick(info){
+          info.jsEvent.preventDefault();
+          if (info.event.url) window.location.href = info.event.url;
+        }
+      });
+      cal.render();
+
+      // ===== 색칠 =====
+      document.querySelectorAll('.week-item[data-farm-code]').forEach(el => {
+        const key = (el.dataset.farmCode || '').toString().trim();
+        const idx = (farmColorMap && farmColorMap[key]) ?? 0;
+        el.classList.add(`farm-color-${idx}`);
+      });
+
+      // ===== 레이아웃의 '본문 왼쪽 마진(=사이드바 폭)'을 읽어 CSS 변수로 반영 =====
+      const main = document.getElementById('mainArea');
+      function getAsideOffsetPx(){
+        const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+        if (!isDesktop || !main) return 0;
+        const cs = getComputedStyle(main);
+        return parseFloat(cs.marginLeft) || 0;   // md:ml-64 / lg:ml-72 / xl:ml-80 실제 px
+      }
+      function applyAsideOffsetVar(){
+        const px = getAsideOffsetPx();
+        document.documentElement.style.setProperty('--aside-offset', px + 'px');
+      }
+
+      // ===== 주간 그리드 동적 보정 =====
+      const grid = document.getElementById('weekGrid');
+      const gridWrap = document.getElementById('weekGridWrap');
+
+      function readGapPx(){
+        const s = grid ? getComputedStyle(grid) : null;
+        return s ? (parseFloat(s.columnGap || s.gap || '12') || 12) : 12;
+      }
+
+      function fitWeekGrid(){
+        if (!grid) return;
+
+        // 1) 레이아웃 변수 먼저 갱신 (wrap의 max-width가 즉시 바뀜)
+        applyAsideOffsetVar();
+
+        // 2) 실제 표시 가능 폭 계산 (wrap은 width:min(100%, calc(100vw - aside)) 로 클램프됨)
+        const wrapWidth = (gridWrap || grid).getBoundingClientRect().width;
+
+        const baseCols = parseInt(grid.dataset.baseCols || '7', 10);
+        const GAP = readGapPx();
+        const MIN_COL = 160; // CSS minmax와 동일
+
+        const maxFit = Math.max(1, Math.floor((wrapWidth + GAP) / (MIN_COL + GAP)));
+        const cols = Math.min(baseCols, maxFit);
+
+        grid.style.setProperty('--week-cols', cols);
+        if (maxFit < baseCols) grid.setAttribute('data-fluid', '1');
+        else grid.removeAttribute('data-fluid');
+      }
+
+      // 초기 보정
+      fitWeekGrid();
+
+      // 캘린더/컨테이너 크기 변화 감지
+      if ('ResizeObserver' in window) {
+        let to;
+        const ro = new ResizeObserver(() => {
+          clearTimeout(to);
+          to = setTimeout(() => { cal.updateSize(); fitWeekGrid(); }, 60);
+        });
+        ro.observe(el.parentElement || el);
+
+        const ro2 = new ResizeObserver(() => fitWeekGrid());
+        ro2.observe(gridWrap || grid);
+
+        const mainObs = new ResizeObserver(() => fitWeekGrid());
+        mainObs.observe(main || document.body);
+      }
+
+      // 창 리사이즈
+      let t1, lastW = window.innerWidth, lastMobile = isMobile();
+      window.addEventListener('resize', () => {
+        clearTimeout(t1);
+        t1 = setTimeout(() => {
+          fitWeekGrid();
+          const w = window.innerWidth, mobile = isMobile();
+          if (Math.abs(w - lastW) > 120) {
+            lastW = w;
+            if (mobile !== lastMobile) { lastMobile = mobile; cal.changeView(cal.view.type); }
+            else { cal.updateSize(); }
+          }
+        }, 120);
+      });
+
+      // 레이아웃에서 쏘는 이벤트(사이드바 토글/브레이크포인트 전환 등)
+      window.addEventListener('shell:sidebar-resize', () => {
+        // 즉시 + 애니메이션 종료 후 한 번 더
+        fitWeekGrid();
+        cal.updateSize();
+        setTimeout(() => { fitWeekGrid(); cal.updateSize(); }, 240);
+        setTimeout(() => { fitWeekGrid(); }, 360);
+      });
+
+      // 혹시 레이아웃 스크립트 없이 직접 토글되는 경우 대비
+      document.getElementById('sidebar')?.addEventListener('transitionend', (e) => {
+        if (e.propertyName === 'transform') { fitWeekGrid(); cal.updateSize(); }
+      });
+    });
+</script>
+</body>
+</html>

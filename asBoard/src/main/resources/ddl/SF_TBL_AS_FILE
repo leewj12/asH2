@@ -1,0 +1,13 @@
+CREATE TABLE wjlee.dbo.SF_TBL_AS_FILE (
+    FILE_ID         BIGINT IDENTITY(1,1) PRIMARY KEY,       -- 파일 고유 ID
+    AS_ID           BIGINT NOT NULL,                        -- FK → AS_HEADER7.AS_ID
+    ORIGINAL_NAME   NVARCHAR(256) NOT NULL,                 -- 업로드 당시 파일명
+    UUID_NAME       NVARCHAR(256) NOT NULL,                 -- 서버 저장 파일명 (UUID)
+    FILE_PATH       NVARCHAR(512) NOT NULL,                 -- 저장 경로
+    FILE_SIZE       INT NULL,                               -- 파일 크기 (Byte)
+    FILE_TYPE       NVARCHAR(128) NULL,                     -- MIME 타입
+    REG_DATE        DATETIME DEFAULT GETDATE(),             -- 업로드 일시
+    USE_FLAG        NCHAR(1) NOT NULL DEFAULT '1',          -- 논리 삭제 여부
+    CONSTRAINT FK_AS_FILE_HEADER FOREIGN KEY (AS_ID)
+        REFERENCES wjlee.dbo.SF_TBL_AS_HEADER(AS_ID)
+);

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>접근 불가</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+<main class="bg-white rounded-xl shadow ring-1 ring-slate-200 max-w-md w-full p-8 text-center space-y-4">
+    <div class="mx-auto h-12 w-12 rounded-md bg-blue-600 grid place-items-center">
+        <span class="text-white font-bold">AS</span>
+    </div>
+    <h1 class="text-xl font-semibold text-slate-900">권한이 없습니다 (403)</h1>
+    <p class="text-slate-600">요청하신 페이지에 접근할 권한이 없습니다.</p>
+    <div class="flex gap-2 justify-center">
+        <a href="/" class="rounded-md border px-4 py-2 text-slate-700 hover:bg-slate-50">홈으로</a>
+        <a href="/login" class="rounded-md bg-slate-900 text-white px-4 py-2 hover:bg-slate-800">로그인</a>
+    </div>
+</main>
+</body>
+</html>

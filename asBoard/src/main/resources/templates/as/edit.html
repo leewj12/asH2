@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}"
+      layout:fragment="content">
+<head>
+    <meta charset="UTF-8">
+    <title>As 수정</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+
+<body class="bg-gray-50 p-4 md:p-6 text-sm">
+<div class="w-full mx-auto bg-white p-4 md:p-6 rounded-2xl shadow max-w-[1500px]">
+    <header class="mb-4 md:mb-6">
+        <h2 class="text-xl md:text-2xl font-semibold tracking-tight">일정 수정</h2>
+<!--        <p class="text-gray-500 mt-1 text-xs md:text-sm">필요한 정보만 수정하고 저장하세요.</p>-->
+    </header>
+
+    <input type="hidden" id="asId" th:value="${as.asId}" />
+    <input type="hidden" id="farmCode" th:value="${as.farmCode}" />
+
+    <!-- 농장 정보 -->
+    <section class="mb-5 md:mb-6">
+        <label class="block font-medium text-gray-700">농장</label>
+        <p class="bg-gray-100 rounded px-3 py-2 break-words mt-1" th:text="${as.farmCode}"></p>
+    </section>
+
+    <!-- 장비 선택 라인 -->
+    <section class="mb-5 md:mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 items-end">
+            <div class="min-w-0">
+                <label class="block text-sm font-medium text-gray-700">장비 카테고리</label>
+                <select id="tableName" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">장비 선택</option>
+                    <option value="UNREGISTERED">미등록 장비</option>
+                </select>
+            </div>
+            <div class="min-w-0">
+                <label class="block text-sm font-medium text-gray-700">장비</label>
+                <select id="equipmentSelect" class="w-full border rounded px-3 py-2 hidden focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                <input type="text" id="customEqmntName" class="w-full border rounded px-3 py-2 hidden focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="장비명 입력 (미등록용)">
+                <div id="equipmentPlaceholder" class="h-[40px] invisible"></div>
+            </div>
+            <div class="flex flex-col justify-end">
+                <button type="button" id="addEquipBtn" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-2 rounded-lg">장비 추가</button>
+            </div>
+        </div>
+
+        <!-- 장비 카드 그리드 -->
+        <div id="equipTableContainer" class="mt-4 md:mt-5 hidden">
+            <div id="equipCardGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4"></div>
+        </div>
+    </section>
+
+    <!-- 문제 유형 (선택) -->
+    <section class="mb-5 md:mb-6">
+        <label class="block text-sm font-medium text-gray-700">문제 유형 <span class="text-gray-400 font-normal">(선택)</span></label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
+            <select id="asTypeSelect" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="기타" selected>선택 안함</option>
+                <option value="장비">장비</option>
+                <option value="네트워크">네트워크</option>
+                <option value="모듈">모듈</option>
+                <option value="CUSTOM">기타(직접 입력)</option>
+            </select>
+            <input type="text" id="asTypeCustom" class="w-full border rounded px-3 py-2 hidden focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="기타 유형을 입력 (선택)">
+        </div>
+        <p class="text-xs text-gray-500 mt-1">선택하지 않으면 ‘기타’로 저장됩니다.</p>
+    </section>
+
+    <!-- 접수자/담당자/일자 -->
+    <section class="mb-5 md:mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+            <div class="min-w-0">
+                <label class="block text-sm font-medium text-gray-700">접수자</label>
+                <input type="text" id="reqUser" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" th:value="${as.reqUser}"/>
+            </div>
+            <div class="min-w-0">
+                <label class="block text-sm font-medium text-gray-700">AS 담당자</label>
+                <input type="text" id="asManager" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" th:value="${as.asManager}"/>
+            </div>
+            <div class="min-w-0">
+                <label class="block text-sm font-medium text-gray-700">접수일자</label>
+                <input type="datetime-local" id="reqDate" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" th:value="${as.reqDate}"/>
+            </div>
+        </div>
+    </section>
+
+    <!-- 일정 블록 -->
+    <section class="mb-5 md:mb-6">
+        <div class="flex items-baseline justify-between">
+            <label class="block text-sm font-medium text-gray-700">일정</label>
+            <span class="text-xs text-gray-400">예정일은 필수</span>
+        </div>
+        <div id="scheduleListContainer" class="space-y-3 mt-2"></div>
+        <button type="button" id="addScheduleBtn" class="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg w-full sm:w-auto">일정 추가</button>
+    </section>
+
+    <!-- 기타 입력란 -->
+    <section class="mb-5 md:mb-6 grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">접수 내용</label>
+            <textarea id="reqContent" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows="4" th:text="${as.reqContent}"></textarea>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700">조치 결과</label>
+            <textarea id="asResult" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows="4" th:text="${as.asResult}"></textarea>
+        </div>
+    </section>
+
+    <section class="mb-5 md:mb-6">
+        <label class="block text-sm font-medium text-gray-700">비고</label>
+        <textarea id="etc" class="w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows="3" th:text="${as.etc}"></textarea>
+    </section>
+
+    <!-- 상태 -->
+    <section class="mb-5 md:mb-6">
+        <label class="block text-sm font-medium text-gray-700">AS 상태</label>
+        <label class="inline-flex items-center mt-2 select-none">
+            <input type="checkbox" id="statusFlag" class="mr-2" th:checked="${as.statusFlag == false}"/>
+            <span class="text-gray-700">보류로 등록</span>
+        </label>
+    </section>
+
+    <!-- 파일 업로드 -->
+    <section class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2">첨부파일</label>
+        <div class="relative border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 text-center hover:border-blue-400">
+            <input type="file" id="asFile" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple>
+            <div class="flex flex-col items-center space-y-1 pointer-events-none">
+                <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v9m0 0l-3-3m3 3l3-3m0-12a4 4 0 00-8 0v4a4 4 0 008 0V5z"/>
+                </svg>
+                <p class="text-gray-500 text-sm">클릭하거나 파일을 드래그하세요</p>
+            </div>
+        </div>
+        <ul id="filePreviewList" class="mt-3 space-y-2 text-sm text-gray-700"></ul>
+    </section>
+
+    <!-- 버튼 -->
+    <footer class="mt-6 flex flex-col sm:flex-row gap-2 justify-center sm:justify-end">
+        <button id="submitBtn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">수정</button>
+        <button type="button" onclick="history.back()"
+                class="w-full sm:w-auto border border-gray-500 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-100">취소</button>
+    </footer>
+</div>
+
+<script th:inline="javascript">
+    // ===== 상태 =====
+    const equipList      = /*[[${as.equipList}]]*/ [];
+    const scheduleList   = /*[[${as.scheduleList}]]*/ [];
+    const deletedFileIds = [];
+    const fileList       = [];
+
+    // ===== 유틸 =====
+    const fmt = v => (v ?? '').toString();
+
+    // datetime-local value로 정규화
+    function toDTLocal(v){
+      if (!v) return '';
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) return v; // already good
+      const d = new Date(v);
+      if (isNaN(d)) {
+        const m = v.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})/);
+        return m ? `${m[1]}T${m[2]}:${m[3]}` : '';
+      }
+      const pad = n => String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    // DB 전송 시 초 보정
+    const ensureSeconds = v => (v && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v)) ? (v + ':00') : v;
+
+    // ===== 레이아웃 토글 =====
+    function toggleEquipInputs(state){ // 'none' | 'custom' | 'select'
+      const $eq = $('#equipmentSelect');
+      const $custom = $('#customEqmntName');
+      const $ph = $('#equipmentPlaceholder');
+      if (state === 'none'){ $eq.addClass('hidden'); $custom.addClass('hidden'); $ph.removeClass('hidden').addClass('invisible'); }
+      else if (state === 'custom'){ $eq.addClass('hidden'); $custom.removeClass('hidden'); $ph.addClass('hidden'); }
+      else { $custom.addClass('hidden'); $eq.removeClass('hidden'); $ph.addClass('hidden'); }
+    }
+
+    // ===== 장비 카드 렌더링 =====
+    function drawEquipCards(){
+      const $container = $('#equipTableContainer');
+      const $grid = $('#equipCardGrid').empty();
+      if (equipList.length === 0){ $container.addClass('hidden'); return; }
+      $container.removeClass('hidden');
+
+      equipList.forEach((e,i)=>{
+        const tableName = (e.tableName || '').toString().toUpperCase();
+        const badgeClass = tableName === 'UNREGISTERED'
+          ? 'bg-rose-50 text-rose-700 border-rose-200'
+          : (tableName === 'SF_TBL_EQMNT' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200');
+        const kindLabel = tableName === 'SF_TBL_EQMNT' ? 'EQMNT_KIND' : 'SUB_SEQ';
+        const kindValue = tableName === 'SF_TBL_EQMNT' ? (e.eqmntKind ?? '-') : (e.subSeq ?? '-');
+
+        const card = `
+          <div class="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="font-semibold truncate">${fmt(e.eqmntName) || '미등록 장비'}</div>
+                <div class="mt-1 text-xs text-gray-500 flex flex-wrap gap-2 items-center">
+                  <span class="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full border ${badgeClass}">${tableName || 'UNKNOWN'}</span>
+                </div>
+              </div>
+              <button onclick="removeEquip(${i})" class="shrink-0 text-rose-600 hover:text-rose-700 text-xs px-2 py-1 rounded border border-rose-200 hover:bg-rose-50">삭제</button>
+            </div>
+            <div class="mt-2 space-y-1.5 text-sm">
+              <div class="flex">
+                <span class="w-24 text-gray-500 shrink-0">EQMNT_SEQ</span>
+                <span class="text-gray-800 break-all">${fmt(e.eqmntSeq) || '-'}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-500 shrink-0">${kindLabel}</span>
+                <span class="text-gray-800 break-all">${fmt(kindValue)}</span>
+              </div>
+              <div class="flex">
+                <span class="w-24 text-gray-500 shrink-0">설치일</span>
+                <span class="text-gray-800">${fmt(e.useDate) || '-'}</span>
+              </div>
+            </div>
+          </div>`;
+        $grid.append(card);
+      });
+    }
+    function removeEquip(idx){ equipList.splice(idx,1); drawEquipCards(); }
+
+    // ===== 일정 블록(카드형) =====
+    function drawScheduleBlocks(){
+      const $c = $('#scheduleListContainer').empty();
+      scheduleList.forEach((s,i)=>{
+        const block = `
+          <div class="rounded-xl border border-gray-200 bg-white shadow-sm p-3 md:p-4">
+            <div class="flex items-baseline justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-blue-500"></span>
+                <span class="text-sm font-medium text-gray-800">일정 #${i+1}</span>
+              </div>
+              <button type="button" onclick="removeSchedule(${i})" class="text-rose-600 hover:text-rose-700 text-xs px-2 py-1 rounded border border-rose-200 hover:bg-rose-50">삭제</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="text-xs text-gray-500">예정일 <span class="text-rose-500">*</span></label>
+                <input type="datetime-local" class="w-full border rounded px-2 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       value="${toDTLocal(s.planDate)}"
+                       onchange="scheduleList[${i}].planDate = this.value">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500">완료일</label>
+                <input type="datetime-local" class="w-full border rounded px-2 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       value="${toDTLocal(s.completeDate)}"
+                       onchange="scheduleList[${i}].completeDate = this.value">
+              </div>
+              <div class="sm:col-span-1"></div>
+            </div>
+            <div class="mt-3">
+              <label class="text-xs text-gray-500">점검 내용</label>
+              <textarea class="w-full border rounded px-2 py-2 mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows="2"
+                        onchange="scheduleList[${i}].asContent = this.value">${fmt(s.asContent)}</textarea>
+            </div>
+          </div>`;
+        $c.append(block);
+      });
+    }
+    function removeSchedule(i){ scheduleList.splice(i,1); drawScheduleBlocks(); }
+    $('#addScheduleBtn').on('click', function(){
+      scheduleList.push({ planDate:'', completeDate:'', asContent:'' });
+      drawScheduleBlocks();
+    });
+
+    // ===== 문제 유형: 기타 선택 시 입력창 토글 =====
+    function toggleAsTypeCustom(){
+      const v = $('#asTypeSelect').val();
+      if (v === 'CUSTOM') { $('#asTypeCustom').removeClass('hidden').trigger('focus'); }
+      else { $('#asTypeCustom').addClass('hidden').val(''); }
+    }
+    $('#asTypeSelect').on('change', toggleAsTypeCustom);
+
+    // ===== 초기 렌더 =====
+    $(function(){
+      // 일정 포맷 정리
+      scheduleList.forEach(s => {
+        s.planDate     = toDTLocal(s.planDate);
+        s.completeDate = toDTLocal(s.completeDate);
+      });
+      drawEquipCards();
+      drawScheduleBlocks();
+
+      // 농장 카테고리 채우기
+      const farmCode = $('#farmCode').val();
+      if (farmCode){
+        $.get('/api/as/categoryList', { farmCode }, list=>{
+          const $table = $('#tableName');
+          $table.empty().append('<option value="">장비 선택</option><option value="UNREGISTERED">미등록 장비</option>');
+          [...new Set(list)].forEach(tn => $table.append(`<option value="${tn}">${tn}</option>`));
+        });
+      }
+      toggleEquipInputs('none');
+
+      // 문제유형 초기값 반영
+      const initialAsType = /*[[${as.asType}]]*/ null;
+      const FIXED = ['장비','네트워크','모듈'];
+      if (initialAsType && FIXED.includes(initialAsType)) {
+        $('#asTypeSelect').val(initialAsType);
+      } else if (!initialAsType || String(initialAsType).trim()==='') {
+        $('#asTypeSelect').val(''); // 선택 안함
+      } else {
+        $('#asTypeSelect').val('CUSTOM');
+        $('#asTypeCustom').removeClass('hidden').val(initialAsType);
+      }
+    });
+
+    // ===== 장비 카테고리 변경 → 목록 로딩 =====
+    $('#tableName').on('change', function(){
+      const table = $(this).val();
+      const farmCode = $('#farmCode').val();
+      const $eq = $('#equipmentSelect');
+      if (!table || !farmCode){ toggleEquipInputs('none'); return; }
+      if (table === 'UNREGISTERED'){ toggleEquipInputs('custom'); return; }
+
+      toggleEquipInputs('select');
+      $.get('/api/as/equipmentList', { farmCode, tableName: table }, function (list) {
+        $eq.empty().append('<option value="">선택</option>');
+        list.forEach((raw,i)=>{
+          const item = {
+            EQMNT_SEQ:  raw.EQMNT_SEQ ?? null,
+            SUB_SEQ:    (raw.SUB_SEQ ?? raw.EQMNT_KIND ?? null),
+            EQMNT_NAME: raw.EQMNT_NAME ?? '',
+            USE_DATE:   raw.USE_DATE ?? null
+          };
+          const label = `[${item.EQMNT_SEQ ?? ''}-${item.SUB_SEQ ?? ''}] ${item.EQMNT_NAME}`;
+          const $opt = $('<option>').val(String(i)).text(label).data('equip', item);
+          $eq.append($opt);
+        });
+      });
+    });
+
+    // ===== 장비 추가 =====
+    $('#addEquipBtn').on('click', function(){
+      const farmCode = $('#farmCode').val();
+      const tableName = $('#tableName').val();
+      if (!farmCode || !tableName) return alert('농장과 장비를 선택하세요');
+
+      let data = { farmCode, tableName, useFlag:'1' };
+      if (tableName === 'UNREGISTERED'){
+        const name = $('#customEqmntName').val();
+        if (!name) return alert('장비명을 입력하세요');
+        data.eqmntName = name;
+      } else {
+        const $opt = $('#equipmentSelect option:selected');
+        const item = $opt.data('equip');
+        if (!item) return alert('장비를 선택하세요');
+
+        const isEqmnt = tableName === 'SF_TBL_EQMNT';
+        data.eqmntSeq  = item.EQMNT_SEQ || null;
+        data.subSeq    = isEqmnt ? null : (item.SUB_SEQ || null);
+        data.eqmntKind = isEqmnt ? (item.SUB_SEQ || null) : null;
+        data.eqmntName = item.EQMNT_NAME || null;
+        data.useDate   = item.USE_DATE ? String(item.USE_DATE).substring(0,19) : null;
+
+        const dup = equipList.some(e =>
+          e.tableName===tableName && e.eqmntSeq===data.eqmntSeq &&
+          (e.subSeq ?? e.eqmntKind)===(data.subSeq ?? data.eqmntKind)
+        );
+        if (dup) return alert('이미 추가된 장비입니다');
+      }
+      equipList.push(data);
+      drawEquipCards();
+    });
+
+    // ===== 파일(기존/신규) =====
+    function getFileIcon(ext){
+      const m={jpg:'🖼️',jpeg:'🖼️',png:'🖼️',gif:'🖼️',pdf:'📄',doc:'📄',docx:'📄',ppt:'📊',pptx:'📊',xls:'📊',xlsx:'📊',zip:'🗜️',txt:'📃'};
+      return `<span>${m[ext]||'📁'}</span>`;
+    }
+    function removeExistingFile(fileId){
+      deletedFileIds.push(fileId);
+      $(`#filePreviewList li[data-file-id='${fileId}']`).remove();
+    }
+    function removeNewFile(index){
+      fileList.splice(index,1);
+      const preview=document.getElementById('filePreviewList');
+      const items=[...preview.querySelectorAll('li[data-file-index]')];
+      if(items[index]) items[index].remove();
+      const dt=new DataTransfer(); fileList.forEach(f=>dt.items.add(f));
+      $('#asFile')[0].files=dt.files;
+    }
+    $('#asFile').on('change', function(){
+      const preview=document.getElementById('filePreviewList');
+      const files=[...this.files];
+      files.forEach((file)=>{
+        fileList.push(file);
+        const ext=file.name.split('.').pop().toLowerCase();
+        const icon=getFileIcon(ext);
+        const size=(file.size/1024).toFixed(1)+' KB';
+        const idx=fileList.length-1;
+        const li=document.createElement('li');
+        li.setAttribute('data-file-index', idx);
+        li.className='flex items-center justify-between border border-gray-200 rounded px-3 py-2 bg-white';
+        li.innerHTML=`
+          <div class="flex items-center gap-2 min-w-0">
+            ${icon}
+            <span class="truncate max-w-[220px] sm:max-w-[320px]">${file.name}</span>
+            <span class="text-gray-400 text-xs">(${size})</span>
+          </div>
+          <button type="button" onclick="removeNewFile(${idx})" class="text-red-500 text-sm hover:underline">삭제</button>`;
+        preview.appendChild(li);
+      });
+    });
+
+    // 기존 파일 렌더
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const existingFiles = /*[[${as.fileList}]]*/ [];
+      const preview = document.getElementById('filePreviewList');
+      existingFiles.forEach(file=>{
+        const ext=(file.originalName||'').split('.').pop().toLowerCase();
+        const icon=getFileIcon(ext);
+        const size=file.fileSize ? (file.fileSize/1024).toFixed(1)+' KB' : '';
+        const li=document.createElement('li');
+        li.setAttribute('data-file-id', file.fileId);
+        li.className='flex items-center justify-between border border-gray-200 rounded px-3 py-2 bg-white';
+        li.innerHTML=`
+          <div class="flex items-center gap-2 min-w-0">
+            ${icon}
+            <a href="${file.filePath}/${file.uuidName}" class="text-blue-600 hover:underline truncate max-w-[220px] sm:max-w-[320px]" target="_blank" title="${file.originalName || ''}">
+              ${file.originalName || ''}
+            </a>
+            <span class="text-gray-400 text-xs">${size ? '(' + size + ')' : ''}</span>
+          </div>
+          <button type="button" onclick="removeExistingFile(${file.fileId})" class="text-red-500 text-sm hover:underline">삭제</button>`;
+        preview.appendChild(li);
+      });
+    });
+
+    // ===== 저장 =====
+    $('#submitBtn').on('click', ()=>{
+      const farmCode=$('#farmCode').val();
+      if(!farmCode) return alert('농장을 선택하세요.');
+
+      for (const [i,s] of scheduleList.entries()){
+        if(!s.planDate || s.planDate.trim()==='') return alert(`일정 ${i+1}번의 예정일을 입력하세요`);
+      }
+
+      // isHold 제거 + 시간 포맷 보정
+      const sanitizedSchedules = scheduleList.map(s => {
+        const { isHold, ...rest } = (s || {});
+        return {
+          ...rest,
+          planDate:     ensureSeconds(rest.planDate),
+          completeDate: ensureSeconds(rest.completeDate)
+        };
+      });
+
+      // 문제 유형 값 확정 (nullable, CUSTOM 미입력 시 '기타')
+      const sel = $('#asTypeSelect').val();
+      let asTypeValue = null;
+      if (sel === 'CUSTOM') {
+        const custom = ($('#asTypeCustom').val() || '').trim();
+        asTypeValue = custom || '기타';
+      } else if (sel) {
+        asTypeValue = sel;
+      }
+
+      const dto={
+        asId       : $('#asId').val(),
+        farmCode,
+        reqDate    : ensureSeconds($('#reqDate').val()),
+        reqUser    : $('#reqUser').val(),
+        asManager  : $('#asManager').val(),
+        asType     : asTypeValue,
+        reqContent : $('#reqContent').val(),
+        asResult   : $('#asResult').val(),
+        etc        : $('#etc').val(),
+        statusFlag : !$('#statusFlag').is(':checked'),
+        equipList,
+        scheduleList: sanitizedSchedules,
+        deletedFileIds
+      };
+
+      $.ajax({
+        url: '/api/as/edit',
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(dto),
+        success: () => {
+          const asId = $('#asId').val();
+          if (fileList.length > 0) {
+            const formData = new FormData();
+            fileList.forEach(f => formData.append('files', f));
+            formData.append('asId', asId);
+            fetch('/api/as/file/upload', { method: 'POST', body: formData })
+              .then(res => res.ok ? res.text() : Promise.reject(res.statusText))
+              .then(() => { alert('수정 및 파일 업로드 완료'); location.href = `/as/detail/${encodeURIComponent(asId)}`; })
+              .catch(err => alert('파일 업로드 실패: ' + err));
+          } else {
+            alert('수정 완료');
+            location.href = `/as/detail/${encodeURIComponent(asId)}`;
+          }
+        },
+        error: () => alert('수정 실패')
+      });
+    });
+</script>
+
+</body>
+</html>

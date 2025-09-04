@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}"
+      layout:fragment="content">
+
+<head>
+    <meta charset="UTF-8">
+    <title>접수 목록</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+
+<body class="bg-gray-50 p-4 md:p-6 text-sm">
+<div class="mx-auto w-full max-w-[1700px]">
+
+    <h2 class="text-xl font-semibold mb-3 md:mb-4">
+        <!-- 헤더 클릭 시에도 현재 기준(등록일/예정일) 유지 -->
+        <a th:href="@{/as/list(dateBy=${param.dateBy})}" class="no-underline text-black">접수 목록</a>
+
+        <!-- 기준 배지: (없거나 plan이 기본) -->
+        <span class="align-middle ml-2 text-xs px-2 py-1 rounded bg-slate-100 text-slate-700"
+              title="기간 필터의 기준 컬럼">
+          필터 기준:
+            <!-- ★ param.dateBy는 배열일 수 있으므로 [0] 비교 -->
+          <strong th:text="${param.dateBy != null and param.dateBy[0] == 'reg' ? '등록일' : '예정일'}">예정일</strong>
+        </span>
+    </h2>
+
+    <!-- ── 빠른 문제유형 필터 (Chips) : 데스크탑/모바일 공통 노출 ── -->
+    <div class="mb-3 md:mb-4 flex flex-wrap gap-2">
+        <button type="button" class="chip-asType px-3 h-8 rounded-full border bg-white hover:bg-gray-50 text-gray-700"
+                data-value="ALL">전체</button>
+        <button type="button" class="chip-asType px-3 h-8 rounded-full border bg-white hover:bg-gray-50 text-gray-700"
+                data-value="장비">장비</button>
+        <button type="button" class="chip-asType px-3 h-8 rounded-full border bg-white hover:bg-gray-50 text-gray-700"
+                data-value="네트워크">네트워크</button>
+        <button type="button" class="chip-asType px-3 h-8 rounded-full border bg-white hover:bg-gray-50 text-gray-700"
+                data-value="모듈">모듈</button>
+        <button type="button" class="chip-asType px-3 h-8 rounded-full border bg-white hover:bg-gray-50 text-gray-700"
+                data-value="기타">기타</button>
+        <span class="text-xs text-gray-400 ml-1">정렬 · 세부 검색은 고급필터를 이용해 주세요.</span>
+    </div>
+
+    <!-- 상단: 자유검색 + 고급필터 + 페이지크기 + 초기화 -->
+    <div class="mb-3 md:mb-4 flex flex-wrap items-center gap-2">
+        <input id="qInput" type="text" placeholder="농가명/농가코드/지역/담당자 등 자유 검색"
+               th:value="${param.q}"
+               class="flex-1 min-w-[180px] border rounded px-3 h-9 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button id="btnQuickSearch" class="h-9 px-4 rounded bg-blue-600 text-white">검색</button>
+        <button id="btnOpenFilters" class="h-9 px-4 rounded border bg-white hover:bg-gray-50">고급 필터</button>
+
+        <button id="btnResetAll" class="h-9 px-4 rounded border bg-white hover:bg-gray-50">초기화</button>
+
+        <label for="sizeSelect" class="text-gray-600 ml-2">페이지 크기</label>
+        <select id="sizeSelect" name="size"
+                class="border rounded px-3 h-9 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="10"  th:selected="${param.size == null or param.size == '10'}">10개씩</option>
+            <option value="50"  th:selected="${param.size == '50'}">50개씩</option>
+            <option value="100" th:selected="${param.size == '100'}">100개씩</option>
+        </select>
+    </div>
+
+    <!-- ✅ 모바일 카드 리스트 -->
+    <section class="md:hidden space-y-2">
+        <div th:each="item : ${asList}"
+             class="bg-white rounded-xl shadow p-3 border cursor-pointer"
+             th:onclick="|window.location='/as/detail/' + ${item.asId}|"
+             th:classappend="
+           ${item.statusLabel == '임박'} ? ' ring-1 ring-orange-300' :
+           (${item.statusLabel == '지연'} ? ' ring-1 ring-red-300' : '')">
+
+            <!-- ★ 1행: #ID | 유형 Pill + 상태 Badge -->
+            <div class="flex items-center justify-between">
+                <div class="font-semibold">#<span th:text="${item.asId}"></span></div>
+                <div class="flex items-center gap-2">
+                    <!-- 유형 Pill -->
+                    <span class="inline-flex text-[11px] px-2 py-1 rounded-full border"
+                          th:text="${#strings.isEmpty(item.asType) ? '-' : item.asType}"
+                          th:title="${item.asType}"
+                          th:classappend="${#strings.isEmpty(item.asType)} ? ' bg-slate-50 text-slate-500 border-slate-200' :
+                            (${item.asType == '장비'} ? ' bg-blue-50 text-blue-700 border-blue-200' :
+                            (${item.asType == '네트워크'} ? ' bg-indigo-50 text-indigo-700 border-indigo-200' :
+                            (${item.asType == '모듈'} ? ' bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            ' bg-slate-100 text-slate-700 border-slate-200')))">
+                      -
+                    </span>
+                    <!-- 상태 Badge -->
+                    <span class="text-xs px-2 py-1 rounded-full"
+                          th:text="${#strings.isEmpty(item.statusLabel) ? '-' : item.statusLabel}"
+                          th:classappend="
+                        ${item.statusLabel == '대기'}   ? ' bg-gray-100 text-gray-800' :
+                        (${item.statusLabel == '임박'}   ? ' bg-orange-100 text-orange-600' :
+                        (${item.statusLabel == '진행중'} ? ' bg-green-100 text-green-700' :
+                        (${item.statusLabel == '완료'}   ? ' bg-blue-100 text-blue-700' :
+                        (${item.statusLabel == '지연'}   ? ' bg-red-100 text-red-600' :
+                        (${item.statusLabel == '보류'}   ? ' bg-gray-200 text-gray-500' : '')))))">
+                    </span>
+                </div>
+            </div>
+
+            <!-- ★ 2행: 농장명  농가코드 -->
+            <div class="mt-1 text-sm text-gray-900 flex items-center gap-2">
+                <span class="truncate max-w-[60%]" th:text="${#strings.isEmpty(item.farmName) ? '-' : item.farmName}"
+                      th:title="${item.farmName}"></span>
+                <span class="text-gray-400">·</span>
+                <span class="text-gray-600" th:text="${#strings.isEmpty(item.farmCode) ? '-' : item.farmCode}"></span>
+            </div>
+
+            <!-- ★ 3행: 사업 | 접수일 -->
+            <div class="mt-1 text-gray-700 flex items-center justify-between">
+                <span class="truncate max-w-[60%]" th:text="${#strings.isEmpty(item.projectName) ? '-' : item.projectName}"
+                      th:title="${item.projectName}"></span>
+                <span class="text-gray-500 ml-2">
+                    접수
+                    <span class="ml-1" th:text="${item.reqDate != null ? #temporals.format(item.reqDate, 'yyyy-MM-dd HH:mm') : '-'}"></span>
+                </span>
+            </div>
+
+            <!-- ★ 4행: 등록일 | 예정일 (등록일 추가) -->
+            <div class="mt-1 text-gray-700 flex items-center justify-between">
+                <span>
+                    등록
+                    <span class="ml-1" th:text="${item.regDate != null ? #temporals.format(item.regDate, 'yyyy-MM-dd HH:mm') : '-'}"></span>
+                </span>
+                <span class="text-right">
+                    예정
+                    <span class="ml-1" th:text="${item.planDate != null ? #temporals.format(item.planDate, 'yyyy-MM-dd HH:mm') : '-'}"></span>
+                </span>
+            </div>
+        </div>
+
+        <div th:if="${#lists.isEmpty(asList)}"
+             class="px-4 py-4 text-gray-500 text-center">조회된 데이터가 없습니다</div>
+    </section>
+
+    <!-- ✅ 데스크탑 테이블 -->
+    <section class="hidden md:block">
+        <div class="bg-white rounded-md shadow">
+            <table class="w-full divide-y divide-gray-200 text-xs lg:text-sm">
+                <thead class="bg-gray-100 text-gray-700 font-semibold text-left">
+                <tr>
+                    <th class="px-3 py-2 text-left">ID</th>
+                    <th class="px-3 py-2 text-left">농가명</th>
+                    <th class="px-3 py-2 text-left">농가코드</th>
+                    <th class="px-3 py-2 text-left">지역</th>
+                    <th class="px-3 py-2 text-left">문제유형</th>
+                    <th class="px-3 py-2 text-left">사업명</th>
+                    <th class="px-3 py-2 text-left">접수일</th>
+                    <th class="px-3 py-2 text-left">등록일</th>
+                    <th class="px-3 py-2 text-left">예정일</th>
+                    <th class="px-3 py-2 text-left">진행도</th>
+                </tr>
+                </thead>
+
+                <tbody class="bg-white divide-y divide-gray-200">
+                <tr th:each="item : ${asList}"
+                    class="hover:bg-blue-50 cursor-pointer align-top"
+                    th:onclick="|window.location='/as/detail/' + ${item.asId}|"
+                    th:classappend="
+              ${item.statusLabel == '임박'} ? ' bg-yellow-50' :
+              (${item.statusLabel == '지연'} ? ' bg-red-100' : '')">
+
+                    <td class="px-3 py-2 break-words" th:text="${item.asId}"></td>
+
+                    <td class="px-3 py-2 break-words leading-tight"
+                        th:text="${#strings.isEmpty(item.farmName) ? '-' : item.farmName}"
+                        th:title="${item.farmName}"></td>
+
+                    <td class="px-3 py-2 break-words leading-tight"
+                        th:text="${#strings.isEmpty(item.farmCode) ? '-' : item.farmCode}"></td>
+
+                    <td class="px-3 py-2 break-words leading-tight"
+                        th:text="${#strings.isEmpty(item.regionName) ? '-' : item.regionName}"
+                        th:title="${item.regionName}"></td>
+
+                    <td class="px-3 py-2">
+                        <div class="truncate max-w-[11rem] xl:max-w-[14rem]"
+                             th:text="${#strings.isEmpty(item.asType) ? '-' : item.asType}"
+                             th:title="${item.asType}"></div>
+                    </td>
+
+                    <td class="px-3 py-2">
+                        <div class="truncate max-w-[11rem] xl:max-w-[14rem]"
+                             th:text="${#strings.isEmpty(item.projectName) ? '-' : item.projectName}"
+                             th:title="${item.projectName}"></div>
+                    </td>
+
+                    <td class="px-3 py-2 break-words"
+                        th:text="${item.reqDate != null ? #temporals.format(item.reqDate, 'yyyy-MM-dd HH:mm') : '-'}"></td>
+
+                    <td class="px-3 py-2 break-words"
+                        th:text="${item.regDate != null ? #temporals.format(item.regDate, 'yyyy-MM-dd HH:mm') : '-'}"></td>
+
+                    <td class="px-3 py-2 break-words"
+                        th:text="${item.planDate != null ? #temporals.format(item.planDate, 'yyyy-MM-dd HH:mm') : '-'}"></td>
+
+                    <td class="px-3 py-2 font-medium"
+                        th:text="${#strings.isEmpty(item.statusLabel) ? '-' : item.statusLabel}"
+                        th:classappend="
+                ${item.statusLabel == '대기'} ? ' text-gray-800' :
+                (${item.statusLabel == '임박'} ? ' text-orange-600' :
+                (${item.statusLabel == '진행중'} ? ' text-green-600' :
+                (${item.statusLabel == '완료'} ? ' text-blue-600' :
+                (${item.statusLabel == '지연'} ? ' text-red-600' :
+                (${item.statusLabel == '보류'} ? ' text-gray-400' : '')))))">
+                    </td>
+                </tr>
+
+                <tr th:if="${#lists.isEmpty(asList)}">
+                    <td colspan="10" class="px-4 py-4 text-gray-500 text-center">조회된 데이터가 없습니다</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- 페이징 (신규 파라미터 유지) -->
+    <div class="mt-6 mb-3 flex justify-center" th:if="${totalPages > 1}">
+        <ul class="flex gap-1">
+            <li th:if="${page > 1}">
+                <a th:href="@{/as/list(
+            q=${param.q},
+            farms=${param.farms},
+            types=${param.types},
+            statuses=${param.statuses},
+            tables=${param.tables},
+            equipName=${param.equipName},
+            period=${param.period},
+            startDate=${param.startDate},
+            endDate=${param.endDate},
+            sortField=${param.sortField},
+            sortDir=${param.sortDir},
+            dateBy=${param.dateBy},
+            page=${page - 1},
+            size=${param.size})}"
+                   class="px-3 py-1 border rounded bg-white text-gray-600 hover:bg-gray-100">&lt;</a>
+            </li>
+            <li th:each="i : ${#numbers.sequence(1, totalPages)}">
+                <a th:href="@{/as/list(
+            q=${param.q},
+            farms=${param.farms},
+            types=${param.types},
+            statuses=${param.statuses},
+            tables=${param.tables},
+            equipName=${param.equipName},
+            period=${param.period},
+            startDate=${param.startDate},
+            endDate=${param.endDate},
+            sortField=${param.sortField},
+            sortDir=${param.sortDir},
+            dateBy=${param.dateBy},
+            page=${i},
+            size=${param.size})}"
+                   th:text="${i}"
+                   th:classappend="${i == page} ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'
+               + ' px-3 py-1 border rounded hover:bg-gray-100'"
+                   class="px-3 py-1 border rounded">
+                </a>
+            </li>
+            <li th:if="${page < totalPages}">
+                <a th:href="@{/as/list(
+            q=${param.q},
+            farms=${param.farms},
+            types=${param.types},
+            statuses=${param.statuses},
+            tables=${param.tables},
+            equipName=${param.equipName},
+            period=${param.period},
+            startDate=${param.startDate},
+            endDate=${param.endDate},
+            sortField=${param.sortField},
+            sortDir=${param.sortDir},
+            dateBy=${param.dateBy},
+            page=${page + 1},
+            size=${param.size})}"
+                   class="px-3 py-1 border rounded bg-white text-gray-600 hover:bg-gray-100">&gt;</a>
+            </li>
+        </ul>
+    </div>
+
+</div>
+
+<!-- Overlay -->
+<div id="filterOverlay" class="fixed inset-0 bg-black/30 hidden z-40"></div>
+
+<!-- Drawer -->
+<!--<aside id="filterDrawer"-->
+<!--       class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-xl z-50 translate-x-full transition-transform">-->
+
+    <aside id="filterDrawer"
+           class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-xl z-50 translate-x-full transition-transform
+                  flex flex-col h-[100dvh]">
+
+    <header class="h-12 px-4 flex items-center justify-between border-b">
+        <h3 class="font-semibold">고급 필터</h3>
+        <button id="btnCloseFilters" class="p-2">✕</button>
+    </header>
+
+<!--    <div class="p-4 space-y-4 text-sm">-->
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-4 text-sm pb-28"
+             style="padding-bottom: calc(env(safe-area-inset-bottom) + 5rem);">
+
+        <!-- 농장(다중, CSV) -->
+        <div>
+            <label class="block font-medium mb-1">농가 다중 검색( ',' 로 구분)</label>
+            <input id="farmsInput" type="text" placeholder="예: 인프로, 농장"
+                   class="w-full border rounded px-3 h-9">
+        </div>
+
+        <!-- 문제유형(다중) -->
+        <div>
+            <label class="block font-medium mb-1">문제유형</label>
+            <div id="typesGroup" class="flex flex-wrap gap-2">
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="장비"> 장비</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="네트워크"> 네트워크</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="모듈"> 모듈</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="기타"> 기타</label>
+            </div>
+        </div>
+
+        <!-- 진행도(다중) -->
+        <div>
+            <label class="block font-medium mb-1">진행도</label>
+            <div id="statusesGroup" class="flex flex-wrap gap-2">
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="대기"> 대기</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="임박"> 임박</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="진행중"> 진행중</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="지연"> 지연</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="완료"> 완료</label>
+                <label class="inline-flex items-center gap-1"><input type="checkbox" value="보류"> 보류</label>
+            </div>
+        </div>
+
+        <!-- 장비 카테고리(다중) + 장비명 -->
+        <div>
+            <label class="block font-medium text-gray-700 mb-1">장비 카테고리</label>
+            <div id="tablesGroup" class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <label class="inline-flex items-center gap-1" th:each="tn : ${tableNames}">
+                    <input type="checkbox" class="cb-table" th:value="${tn}">
+                    <span th:text="${tn}">TABLE</span>
+                </label>
+            </div>
+
+            <div class="mt-2">
+                <label class="block font-medium text-gray-700 mb-1" for="equipNameInput">장비명</label>
+                <input type="text" id="equipNameInput" name="equipName" th:value="${param.equipName}"
+                       placeholder="예: 사료빈" class="w-full border rounded px-3 h-9
+                       focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        <!-- 기간 프리셋 + 날짜 -->
+        <div>
+            <label class="block font-medium mb-1">기간</label>
+            <div class="flex flex-wrap items-center gap-3">
+                <label class="inline-flex items-center gap-1"><input type="radio" name="period" value=""> 전체</label>
+                <label class="inline-flex items-center gap-1"><input type="radio" name="period" value="today"> 오늘</label>
+                <label class="inline-flex items-center gap-1"><input type="radio" name="period" value="1w"> 1주</label>
+                <label class="inline-flex items-center gap-1"><input type="radio" name="period" value="1m"> 1개월</label>
+            </div>
+            <!-- ★ 마크업 수정: p 안에 div가 들어가던 잘못된 구조를 정리 -->
+            <p class="text-xs text-gray-500 mt-1">
+                * 기간 프리셋 선택 시 날짜 범위는 무시합니다
+            </p>
+
+            <!-- ★ 기간 기준 토글 (라디오) -->
+            <div class="mt-2">
+                <span class="text-xs text-gray-600">기간 기준</span>
+                <div id="dateByGroup" class="flex gap-3 mt-1">
+                    <label class="inline-flex items-center gap-1">
+                        <input type="radio" name="dateBy" value="plan"> 예정일
+                    </label>
+                    <label class="inline-flex items-center gap-1">
+                        <input type="radio" name="dateBy" value="reg"> 등록일
+                    </label>
+                </div>
+            </div>
+
+            <!-- ★ 날짜만 선택: datetime-local → date -->
+            <div class="mt-2 grid grid-cols-2 gap-2">
+                <input id="startDateInput" type="date" class="border rounded px-3 h-9">
+                <input id="endDateInput"   type="date" class="border rounded px-3 h-9">
+            </div>
+<!--            <p class="text-xs text-gray-500 mt-1">-->
+<!--                &lt;!&ndash; ★ 안내: 자동 시간 보정 &ndash;&gt;-->
+<!--                * 시작은 00:00, 끝은 23:59:59로 자동 적용됩니다 (종료일 포함)-->
+<!--                &lt;!&ndash; (필요시 next-day 00:00 방식으로 바꾸려면 JS 주석 참고) &ndash;&gt;-->
+<!--            </p>-->
+        </div>
+
+        <!-- 정렬 (드로어 전용) -->
+        <div>
+            <label class="block font-medium mb-1">정렬</label>
+            <div class="flex items-center gap-2">
+                <select id="sortFieldInput" class="border rounded px-3 h-9">
+                    <option value="asId">ID</option>
+                    <option value="farmName">농가명</option>
+                    <option value="farmCode">농가코드</option>
+                    <option value="regionName">지역</option>
+                    <option value="asType">문제유형</option>
+                    <option value="projectName">사업명</option>
+                    <option value="reqDate">접수일</option>
+                    <option value="planDate">예정일</option>
+                </select>
+                <select id="sortDirInput" class="border rounded px-3 h-9">
+                    <option value="asc">오름차순</option>
+                    <option value="desc">내림차순</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+<!--    <footer class="p-4 border-t flex justify-between">-->
+
+        <footer class="p-4 border-t bg-white flex justify-between shrink-0 sticky bottom-2"
+                style="padding-bottom: env(safe-area-inset-bottom);">
+
+        <button id="btnResetFilters" class="px-4 h-10 rounded border bg-white hover:bg-gray-50">초기화</button>
+        <div class="space-x-2">
+            <button id="btnClose2" class="px-4 h-10 rounded border bg-white hover:bg-gray-50">닫기</button>
+            <button id="btnApplyFilters" class="px-4 h-10 rounded bg-blue-600 text-white">적용</button>
+        </div>
+    </footer>
+</aside>
+
+<!-- ========== Scripts ========== -->
+
+<!-- 1) 칩 전용 (정렬/레거시 폼 없음) -->
+<script>
+    (function TypeChipsOnly(){
+      const chips = document.querySelectorAll('.chip-asType');
+      const fromCsv = s => (s ? s.split(',').map(v=>v.trim()).filter(Boolean) : []);
+      const getSet = () => new Set(fromCsv(new URLSearchParams(location.search).get('types')));
+
+      function render(){
+        const set = getSet();
+        chips.forEach(btn => {
+          const v = btn.getAttribute('data-value');
+          const active = (v === 'ALL') ? (set.size === 0) : set.has(v);
+          btn.classList.toggle('text-black', active);
+          btn.classList.toggle('border-blue-600', active);
+          btn.classList.toggle('text-gray-700', !active);
+        });
+      }
+
+      function navigateWithTypes(set){
+        // 드로어 체크박스와 동기화 이벤트
+        window.dispatchEvent(new CustomEvent('types-change', { detail: { types: [...set], source:'chips' }}));
+
+        const p = new URLSearchParams(location.search);
+        set.size ? p.set('types', [...set].join(',')) : p.delete('types');
+        p.set('page','1');
+        const sizeSel = document.getElementById('sizeSelect');
+        p.set('size', p.get('size') || (sizeSel ? sizeSel.value : '10'));
+        // dateBy는 자동 보존
+        location.search = p.toString();
+      }
+
+      function onClick(v){
+        const set = getSet();
+        if (v === 'ALL'){ set.clear(); navigateWithTypes(set); return; }
+        set.has(v) ? set.delete(v) : set.add(v);
+        navigateWithTypes(set);
+      }
+
+      chips.forEach(ch => ch.addEventListener('click', () => onClick(ch.getAttribute('data-value'))));
+      render();
+    })();
+</script>
+
+<!-- 2) 고급필터 드로어 -->
+<script>
+    (function AdvancedFilters(){
+      const $  = (s, r=document) => r.querySelector(s);
+      const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+      const toCsv   = (arr) => arr.filter(Boolean).join(",");
+      const fromCsv = (s) => (s ? s.split(",").map(v=>v.trim()).filter(Boolean) : []);
+      const params = new URLSearchParams(location.search);
+
+      // 드로어 열고/닫기
+      const drawer  = $('#filterDrawer');
+      const overlay = $('#filterOverlay');
+      const open  = () => { drawer?.classList.remove('translate-x-full'); overlay?.classList.remove('hidden'); };
+      const close = () => { drawer?.classList.add('translate-x-full');  overlay?.classList.add('hidden');     };
+      $('#btnOpenFilters')?.addEventListener('click', open);
+      $('#btnCloseFilters')?.addEventListener('click', close);
+      $('#btnClose2')?.addEventListener('click', close);
+      overlay?.addEventListener('click', close);
+
+      // 요소
+      const qInput          = $('#qInput'); // 상단 검색창 공유
+      const farmsInput      = $('#farmsInput');
+      const typesGroup      = $('#typesGroup');
+      const statusesGroup   = $('#statusesGroup');
+      const tablesGroup     = $('#tablesGroup');
+      const equipNameInput  = $('#equipNameInput');
+      const sortFieldInput  = $('#sortFieldInput');
+      const sortDirInput    = $('#sortDirInput');
+      const periodRadios    = $$('input[name="period"]');
+
+      // ★ 날짜만 선택 (date)
+      const startDateInput  = $('#startDateInput');
+      const endDateInput    = $('#endDateInput');
+
+      // ★ 기간 기준 라디오
+      const dateByRadios = $$('input[name="dateBy"]');
+      // 현재 URL 기준으로 체크 (기본 plan)
+      const curDateBy = (params.get('dateBy') === 'reg') ? 'reg' : 'plan';
+      dateByRadios.forEach(r => r.checked = (r.value === curDateBy));
+
+      // 초기 주입
+      if (qInput)         qInput.value         = params.get('q') || '';
+      if (farmsInput)     farmsInput.value     = params.get('farms') || '';
+      if (equipNameInput) equipNameInput.value = params.get('equipName') || '';
+      if (sortFieldInput) sortFieldInput.value = params.get('sortField') || 'asId';
+      if (sortDirInput)   sortDirInput.value   = params.get('sortDir')   || 'desc';
+      if (periodRadios.length) {
+        const cur = params.get('period') || '';
+        periodRadios.forEach(r => r.checked = (r.value === cur));
+      }
+
+      // ★ URL의 startDate/endDate에 시간이 들어 있어도 date 입력에는 'YYYY-MM-DD'만 주입
+      const _datePart = (s) => (s ? String(s).substring(0,10) : '');
+      if (startDateInput) startDateInput.value = _datePart(params.get('startDate') || '');
+      if (endDateInput)   endDateInput.value   = _datePart(params.get('endDate')   || '');
+
+      const check = (sel, arr) => $$(sel+' input[type="checkbox"]').forEach(cb => cb.checked = arr.includes(cb.value));
+      if (typesGroup)    check('#typesGroup',    fromCsv(params.get('types')    || ''));
+      if (statusesGroup) check('#statusesGroup', fromCsv(params.get('statuses') || ''));
+      if (tablesGroup)   check('#tablesGroup',   fromCsv(params.get('tables')   || ''));
+
+      // 타입 체크박스 변경 시 → 칩에 즉시 알림 (URL 커밋은 "적용" 버튼에서)
+      if (typesGroup) {
+        typesGroup.addEventListener('change', () => {
+          const types = $$('#typesGroup input:checked').map(x=>x.value);
+          window.dispatchEvent(new CustomEvent('types-change', { detail: { types, source:'drawer' }}));
+        });
+      }
+
+      // 적용
+      $('#btnApplyFilters')?.addEventListener('click', () => {
+        const p = new URLSearchParams(location.search);
+
+        // q (단일)
+        if (qInput) { const v = qInput.value.trim(); v ? p.set('q', v) : p.delete('q'); }
+
+        // 농장 CSV
+        if (farmsInput) { const v = farmsInput.value.trim(); v ? p.set('farms', v) : p.delete('farms'); }
+
+        // 유형/상태/장비
+        if (typesGroup) {
+          const arr = $$('#typesGroup input:checked').map(x=>x.value);
+          arr.length ? p.set('types', toCsv(arr)) : p.delete('types');
+        }
+        if (statusesGroup) {
+          const arr = $$('#statusesGroup input:checked').map(x=>x.value);
+          arr.length ? p.set('statuses', toCsv(arr)) : p.delete('statuses');
+        }
+        if (tablesGroup) {
+          const arr = $$('#tablesGroup .cb-table:checked').map(x=>x.value);
+          arr.length ? p.set('tables', toCsv(arr)) : p.delete('tables');
+        }
+
+        // 장비명
+        if (equipNameInput) { const v = equipNameInput.value.trim(); v ? p.set('equipName', v) : p.delete('equipName'); }
+
+        // 기간 (프리셋 우선)
+        if (periodRadios.length) {
+          const picked = periodRadios.find(r => r.checked)?.value || '';
+          picked ? p.set('period', picked) : p.delete('period');
+          if (picked) { p.delete('startDate'); p.delete('endDate'); }
+        }
+
+        // ★ 프리셋이 없으면 date만 읽어 00:00/23:59:59 로 세팅
+        if (!p.get('period') && startDateInput && endDateInput) {
+          let sd = (startDateInput.value || '').trim();
+          let ed = (endDateInput.value   || '').trim();
+
+          // 한쪽만 선택한 경우 반대쪽을 동일 날짜로 보정
+          if (sd && !ed) ed = sd;
+          if (ed && !sd) sd = ed;
+
+          if (sd) p.set('startDate', `${sd}T00:00`);
+          else    p.delete('startDate');
+
+          if (ed) p.set('endDate',   `${ed}T23:59:59`);
+          else    p.delete('endDate');
+
+          // ▼ 만약 '다음날 00:00' 방식을 원하면 위 두 줄 대신 아래를 사용:
+          // if (ed) {
+          //   const d = new Date(ed + 'T00:00:00');
+          //   d.setDate(d.getDate() + 1);
+          //   const nd = d.toISOString().substring(0,10);
+          //   p.set('endDate', `${nd}T00:00`);
+          // }
+        }
+
+        // ★ dateBy 처리 (plan이면 파라미터 제거 = 기본값)
+        if (dateByRadios.length){
+          const picked = dateByRadios.find(r => r.checked)?.value || 'plan';
+          (picked === 'reg') ? p.set('dateBy','reg') : p.delete('dateBy');
+        }
+
+        // 정렬 + 페이지 리셋
+        if (sortFieldInput) p.set('sortField', sortFieldInput.value);
+        if (sortDirInput)   p.set('sortDir',   sortDirInput.value);
+        p.set('page','1');
+        const sizeSel = document.getElementById('sizeSelect');
+        p.set('size', p.get('size') || (sizeSel ? sizeSel.value : '10'));
+
+        location.search = p.toString();
+      });
+
+      // 초기화(드로어 전용 파라미터 제거)
+      $('#btnResetFilters')?.addEventListener('click', () => {
+        const p = new URLSearchParams(location.search);
+        // ★ 초기화 시 dateBy도 삭제해서 기본(예정일)로 리셋
+        ['q','farms','types','statuses','tables','equipName','period','startDate','endDate','dateBy']
+            .forEach(k => p.delete(k));
+        p.set('page','1');
+        const sizeSel = document.getElementById('sizeSelect');
+        p.set('size', p.get('size') || (sizeSel ? sizeSel.value : '10'));
+        location.search = p.toString();
+      });
+
+      // 퀵 검색 버튼(q 단일)
+      $('#btnQuickSearch')?.addEventListener('click', () => {
+        const p = new URLSearchParams(location.search);
+        const v = (qInput?.value || '').trim();
+        v ? p.set('q', v) : p.delete('q');
+        p.set('page','1');
+        // dateBy는 보존 (퀵검색은 기준을 바꾸지 않음)
+        location.search = p.toString();
+      });
+
+      /* =========================
+         ⌨️ Enter 키 바인딩 추가
+         ========================= */
+
+      const btnApply = $('#btnApplyFilters');
+      const btnQuick = $('#btnQuickSearch');
+
+      // 공통 유틸: IME(한글) 조합 중 Enter 무시
+      const onEnter = (el, fn) => {
+        if (!el) return;
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.isComposing) {
+            e.preventDefault();
+            fn?.();
+          }
+        });
+      };
+
+      // 1) 상단 자유검색: Enter → 퀵검색 실행
+      onEnter(qInput, () => btnQuick?.click());
+
+      // 2) 드로어 입력 요소들: Enter → 적용 실행
+      [farmsInput, equipNameInput, startDateInput, endDateInput, sortFieldInput, sortDirInput]
+        .forEach(el => onEnter(el, () => btnApply?.click()));
+
+      // 3) 라디오(기간/기준)도 Enter → 적용
+      periodRadios.forEach(r => onEnter(r, () => btnApply?.click()));
+      dateByRadios.forEach(r => onEnter(r, () => btnApply?.click()));
+
+      // 4) 체크박스/카테고리 컨테이너에서 Enter → 적용
+      ['#typesGroup', '#statusesGroup', '#tablesGroup'].forEach(sel => {
+        const box = $(sel);
+        if (!box) return;
+        box.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.isComposing) {
+            e.preventDefault();
+            btnApply?.click();
+          }
+        });
+      });
+
+      // 5) 드로어 전역: 입력/셀렉트/텍스트영역에서 Enter → 적용 (마지막 안전망)
+      drawer?.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.isComposing) return;
+        const t = e.target;
+        const tag = t?.tagName;
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') {
+          if (t?.type === 'button') return; // 버튼 기본 동작 유지
+          e.preventDefault();
+          btnApply?.click();
+        }
+      });
+
+    })();
+</script>
+
+<!-- 3) 칩 ↔ 드로어 동기화 -->
+<script>
+    (function FiltersBinding(){
+      const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+      const fromCsv = (s) => (s ? s.split(',').map(v=>v.trim()).filter(Boolean) : []);
+      const getTypesFromURL = () => fromCsv((new URLSearchParams(location.search)).get('types'));
+
+      function setChipActive(types) {
+        const set = new Set(types || []);
+        $$('.chip-asType').forEach(btn => {
+          const v = btn.getAttribute('data-value');
+          const active = (v === 'ALL') ? (set.size === 0) : set.has(v);
+          btn.classList.toggle('text-black', active);
+          btn.classList.toggle('border-blue-600', active);
+          btn.classList.toggle('text-gray-700', !active);
+        });
+      }
+
+      function setDrawerTypes(types) {
+        const set = new Set(types || []);
+        $$('#typesGroup input[type="checkbox"]').forEach(cb => { cb.checked = set.has(cb.value); });
+      }
+
+      // 초기 동기화: URL → 칩/드로어
+      document.addEventListener('DOMContentLoaded', () => {
+        const types = getTypesFromURL();
+        setChipActive(types);
+        setDrawerTypes(types);
+      });
+
+      // 양방향 바인딩
+      window.addEventListener('types-change', (e) => {
+        const types = (e.detail && Array.isArray(e.detail.types)) ? e.detail.types : [];
+        setChipActive(types);
+        setDrawerTypes(types);
+      });
+    })();
+</script>
+
+<!-- 4) 페이지 크기 & 상단 초기화 -->
+<script th:inline="javascript">
+    (function PageSizeAndSearch(){
+      const sizeSel = document.getElementById('sizeSelect');
+      if (sizeSel){
+        const p = new URLSearchParams(location.search);
+        sizeSel.value = p.get('size') || sizeSel.value;
+        sizeSel.addEventListener('change', () => {
+          const q = new URLSearchParams(location.search);
+          q.set('size', sizeSel.value);
+          q.set('page','1');
+          // dateBy 보존
+          location.search = q.toString();
+        });
+      }
+
+      // 상단 초기화: 고급필터 파라미터 제거, size/정렬은 유지
+      const btnResetAll = document.getElementById('btnResetAll');
+      if (btnResetAll){
+        btnResetAll.addEventListener('click', () => {
+          const q = new URLSearchParams(location.search);
+          // ★ 초기화 시 dateBy도 삭제해서 기본(예정일)로 리셋
+          ['q','farms','types','statuses','tables','equipName','period','startDate','endDate','dateBy']
+            .forEach(k => q.delete(k));
+          q.set('page','1');
+          location.search = q.toString();
+        });
+      }
+    })();
+</script>
+
+<!-- 5) autoview=1 → 결과가 정확히 1건이면 상세로 직행 -->
+<script th:inline="javascript">
+    (function(){
+      const qs = new URLSearchParams(location.search);
+      if (qs.get('autoview') !== '1') return;
+
+      const listSize   = /*[[${asList != null ? asList.size() : 0}]]*/ 0;
+      const totalPages = /*[[${totalPages != null ? totalPages : 0}]]*/ 0;
+
+      if (listSize === 1 && totalPages <= 1) {
+        const onlyId = /*[[${asList != null and asList.size()==1 ? asList[0].asId : 0}]]*/ 0;
+        if (onlyId) location.replace('/as/detail/' + onlyId);
+      }
+    })();
+</script>
+
+</body>
+</html>

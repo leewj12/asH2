@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>로그인</title>
+    <link rel="icon" href="/favicon.ico" />
+    <!-- Tailwind CDN (프로덕션에선 빌드된 CSS 권장) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+<main class="w-full max-w-md">
+    <div class="bg-white rounded-2xl shadow-xl ring-1 ring-slate-200 overflow-hidden">
+
+        <!-- 헤더 -->
+        <div class="px-8 pt-8 pb-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <!-- 파란 사각형 로고(흰색 AS) -->
+                <div class="h-12 w-12 rounded-md bg-blue-600 grid place-items-center">
+                    <span class="text-white font-bold tracking-wide">AS</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-semibold text-slate-900">로그인</h1>
+                    <p class="text-sm text-slate-500">계정에 접속해 계속 진행하세요</p>
+                </div>
+            </div>
+            <a href="/" class="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                홈으로
+            </a>
+        </div>
+
+        <!-- 폼 -->
+        <form id="loginForm" class="px-8 pb-8 space-y-4">
+            <div>
+                <label for="username" class="block text-sm font-medium text-slate-700">아이디</label>
+                <input id="username" name="username" autocomplete="username"
+                       class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2
+                        focus:border-slate-900 focus:ring-slate-900/30"
+                       placeholder="ID" required />
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-slate-700">비밀번호</label>
+                <div class="mt-1 relative">
+                    <input id="password" name="password" type="password" autocomplete="current-password"
+                           class="w-full rounded-md border border-slate-300 px-3 py-2 pr-10
+                          focus:border-slate-900 focus:ring-slate-900/30"
+                           placeholder="••••••••" required />
+                    <!-- 흑백 심플 눈 아이콘 -->
+                    <button type="button" id="togglePw"
+                            class="absolute inset-y-0 right-0 px-3 text-slate-400 hover:text-slate-700"
+                            aria-label="비밀번호 표시 전환">
+                        <svg id="iconEyeOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                             class="h-5 w-5"><path fill="currentColor"
+                                                   d="M12 5c5 0 9 5 9 7s-4 7-9 7-9-5-9-7 4-7 9-7zm0 2c-4.2 0-7 3.8-7 5s2.8 5 7 5 7-3.8 7-5-2.8-5-7-5zm0 2.5a3.5 3.5 0 110 7 3.5 3.5 0 010-7z"/></svg>
+                        <svg id="iconEyeClosed" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+                             class="h-5 w-5 hidden"><path fill="currentColor"
+                                                          d="M3 4.3L4.3 3 21 19.7 19.7 21l-2.6-2.6A10.8 10.8 0 0112 19c-5 0-9-5-9-7 0-1.1 1-2.9 2.7-4.5L3 4.3zm6.3 6.3l-1.1-1.1A3.5 3.5 0 0012 8.5c1.9 0 3.5 1.6 3.5 3.5 0 .7-.2 1.3-.5 1.8l-1.1-1.1c.1-.2.1-.5.1-.7 0-1.1-.9-2-2-2-.2 0-.5 0-.7.1z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <button id="submitBtn" class="w-full rounded-md bg-slate-900 text-white py-2.5 font-medium
+                                     hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/30
+                                     disabled:opacity-60 disabled:cursor-not-allowed">
+                로그인
+            </button>
+
+            <p id="msg" class="text-sm text-rose-600 h-5" aria-live="polite"></p>
+
+            <div class="pt-2 flex items-center justify-between text-sm">
+                <a href="/signup" class="text-slate-600 hover:text-slate-900">회원가입</a>
+                <a href="/forgot" class="text-slate-600 hover:text-slate-900">비밀번호 찾기</a>
+            </div>
+        </form>
+    </div>
+
+    <p class="mt-6 text-center text-xs text-slate-500">© 2025 Inpro Whybiz</p>
+</main>
+
+<script>
+    // redirect 파라미터 처리 (안전 가드 포함)
+    const params = new URLSearchParams(location.search);
+    let redirect = params.get('redirect') || '/';
+    const unsafe = redirect.startsWith('/login')
+                || redirect.startsWith('/error')
+                || redirect.startsWith('//')
+                || redirect.includes('://')
+                || redirect.startsWith('/api/');
+    if (unsafe) redirect = '/';
+
+    // 비밀번호 표시 토글
+    const pw = document.getElementById('password');
+    const eyeOpen = document.getElementById('iconEyeOpen');
+    const eyeClosed = document.getElementById('iconEyeClosed');
+    document.getElementById('togglePw').addEventListener('click', () => {
+      const isPw = pw.type === 'password';
+      pw.type = isPw ? 'text' : 'password';
+      eyeOpen.classList.toggle('hidden', !isPw);
+      eyeClosed.classList.toggle('hidden', isPw);
+    });
+
+    // 로그인 제출
+    const form = document.getElementById('loginForm');
+    const btn  = document.getElementById('submitBtn');
+    const msg  = document.getElementById('msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = '';
+      btn.disabled = true;
+      btn.textContent = '로그인 중…';
+
+      const username = e.target.username.value.trim();
+      const password = e.target.password.value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          credentials: 'include', // Access/Refresh 쿠키 수신
+          body: JSON.stringify({ username, password })
+        });
+
+        if (res.ok) {
+          location.href = redirect;
+        } else if (res.status === 401) {
+          msg.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
+        } else {
+          msg.textContent = '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+        }
+      } catch {
+        msg.textContent = '네트워크 오류가 발생했습니다.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '로그인';
+      }
+    });
+</script>
+</body>
+</html>

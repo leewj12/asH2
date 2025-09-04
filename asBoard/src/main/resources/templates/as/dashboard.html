@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}"
+      layout:fragment="content">
+<head>
+    <meta charset="UTF-8" />
+    <title>대시보드</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Leaflet (지도) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        .chart-wrap{height:260px}
+        @media (min-width:768px){.chart-wrap{height:320px}}
+        @media (min-width:1024px){.chart-wrap{height:360px}}
+        .chart-wrap canvas{width:100% !important;height:100% !important}
+
+        /* 지도 전용 */
+        #sidoMap{height:520px}
+        .legend{background:#fff;padding:6px 8px;border:1px solid #ddd;border-radius:8px;line-height:1.2}
+        .legend i{width:12px;height:12px;display:inline-block;margin-right:6px;vertical-align:middle}
+
+        /* Leaflet 범례 스타일: 반투명 흰 배경 + 칩 테두리 */
+        .legend.legend--soft{
+          background: rgba(255,255,255,0.82);
+          padding: 8px 10px;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb; /* slate-200 */
+          box-shadow: 0 1px 2px rgba(0,0,0,.08);
+          font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, sans-serif;
+        }
+        .legend.legend--soft i{
+          display:inline-block; width:12px; height:12px;
+          margin-right:6px; vertical-align:middle;
+          border: 1px solid rgba(0,0,0,.18); border-radius:2px;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-50 p-4 md:p-6 text-sm">
+
+<div class="mx-auto w-full max-w-[1700px] space-y-8">
+    <h1 class="mb-6 text-xl font-bold">대시보드</h1>
+
+    <!-- ========================= 요약 도넛(전체/이번달/이번주/오늘) ========================= -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="summary-cards"></div>
+
+    <!-- ========================= 월별 라인 그래프 (연간 보기 UI 포함) ========================= -->
+    <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold mb-2">월별 AS 건수</h2>
+        <div class="chart-wrap"><canvas id="monthlyChart"></canvas></div>
+    </div>
+
+    <!-- ========================= 지역별 건수(지도) — 추가 부분 ========================= -->
+    <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold mb-2">지역별 건수</h2>
+        <div id="sidoMap" class="rounded overflow-hidden"></div>
+    </div>
+
+    <!-- ========================= 예정일 임박 리스트 (PLAN_DATE 기준) ========================= -->
+    <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-lg font-semibold mb-2">예정 일정</h2>
+
+        <!-- 모바일 카드 -->
+        <div id="upcomingList" class="grid gap-3 md:hidden"></div>
+
+        <!-- 데스크톱 표 -->
+        <div class="overflow-x-auto hidden md:block">
+            <table class="table-fixed min-w-full divide-y divide-gray-200 text-center text-sm">
+                <thead class="bg-gray-100 text-gray-700 font-semibold">
+                <tr>
+                    <th class="px-4 py-2">ID</th>
+                    <th class="px-4 py-2">농가명</th>
+                    <th class="px-4 py-2 hidden lg:table-cell">농가코드</th>
+                    <th class="px-4 py-2 hidden xl:table-cell">지역</th>
+                    <th class="px-4 py-2 hidden lg:table-cell">문제유형</th>
+                    <th class="px-4 py-2 hidden xl:table-cell">사업명</th>
+                    <th class="px-4 py-2">접수일</th>
+                    <th class="px-4 py-2">예정일</th>
+                </tr>
+                </thead>
+                <tbody id="upcomingTable" class="divide-y divide-gray-200 text-sm text-center"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ========================= 종합 그래프 + 상세 (2xl↑ 가로 배치) ========================= -->
+    <div class="grid grid-cols-1 2xl:grid-cols-2 gap-4">
+
+        <!-- ========================= 종합 그래프(TopN) ========================= -->
+        <section class="bg-white p-4 rounded-xl shadow">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+                <h2 class="text-lg font-semibold">종합 통계</h2>
+
+                <!-- 컨트롤 -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <label class="text-sm">대상</label>
+                    <select id="aggDimension" class="border rounded px-2 py-1 text-sm">
+                        <option value="farm">농장</option>
+                        <option value="equipment">장비</option>
+                        <option value="category">문제 유형</option>
+                    </select>
+
+                    <label class="text-sm">기간</label>
+                    <select id="aggPeriod" class="border rounded px-2 py-1 text-sm">
+                        <option value="all">전체</option>
+                        <option value="1m">1개월</option>
+                        <option value="1w">1주일</option>
+                        <option value="1d">오늘</option>
+                    </select>
+
+                    <label class="text-sm">TopN</label>
+                    <select id="aggTopN" class="border rounded px-2 py-1 text-sm">
+                        <option>5</option><option>10</option><option>15</option>
+                    </select>
+
+                    <label class="text-sm">차트</label>
+                    <select id="aggChartType" class="border rounded px-2 py-1 text-sm">
+                        <option value="bar">막대</option>
+                        <option value="line">라인</option>
+                        <option value="pie">파이</option>
+                    </select>
+
+                    <button id="aggReload" class="border rounded px-3 py-1 text-sm bg-gray-50 hover:bg-gray-100">
+                        적용
+                    </button>
+                </div>
+            </div>
+
+            <div class="chart-wrap"><canvas id="aggregateChart"></canvas></div>
+        </section>
+
+        <!-- ========================= 상세 종합 (농장/장비/기간) ========================= -->
+        <section class="bg-white p-4 rounded-xl shadow">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+                <h2 class="text-lg font-semibold" id="detailTitle">상세</h2>
+
+                <!-- 컨트롤 -->
+                <div class="flex flex-wrap items-center gap-2">
+                    <label class="text-sm">농장</label>
+                    <select id="detailFarm" class="border rounded px-2 py-1 text-sm min-w-[200px]">
+                        <option value="">로딩 중…</option>
+                    </select>
+
+                    <label class="text-sm">장비</label>
+                    <select id="detailEquip" class="border rounded px-2 py-1 text-sm min-w-[200px]">
+                        <option value="">로딩 중…</option>
+                    </select>
+
+                    <label class="text-sm">기간</label>
+                    <select id="detailPeriod" class="border rounded px-2 py-1 text-sm">
+                        <option value="all">전체</option>
+                        <option value="1m">1개월</option>
+                        <option value="1w">1주일</option>
+                        <option value="1d">오늘</option>
+                    </select>
+
+                    <button id="detailReload" class="border rounded px-3 py-1 text-sm bg-gray-50 hover:bg-gray-100">
+                        적용
+                    </button>
+                </div>
+            </div>
+
+            <div class="chart-wrap"><canvas id="detailChart"></canvas></div>
+        </section>
+
+    </div>
+
+</div>
+
+<script>
+    (() => {
+      'use strict';
+
+      /* =========================================================================
+       * 공통 유틸
+       * ========================================================================= */
+      const $ = (id) => document.getElementById(id);
+
+      // 목록 페이지(SSR) 기본 URL
+      const LIST_BASE_URL = '/as/list';
+
+      // (선택) 목록 JSON API가 있으면 설정 (없으면 null → autoview 폴백 사용)
+      const LIST_API_URL = null;
+      const LIST_API_LIMIT_PARAMS = ['size','pageSize','limit','_limit'];
+
+      // "YYYY-MM-DDTHH:mm:ss" → "YYYY-MM-DD HH:mm"
+      function formatDateTime(dt){
+        if (!dt) return '-';
+        const str = String(dt);
+        const [d,t] = str.split('T');
+        return `${d||''} ${t ? t.substring(0,5) : ''}`.trim();
+      }
+
+      async function fetchJSON(url){
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(`${url} -> ${r.status}`);
+        return r.json();
+      }
+
+      function pickLabel(x){
+        return x?.label ?? x?.name ?? x?.category ?? x?.farmName ?? x?.tableName ?? '(미지정)';
+      }
+
+      /**
+       * ✅ 대시보드 조건 → 목록 페이지 파라미터 매핑
+       *    - 목록에서는 regDate(접수일) 기준으로 필터되도록 dateBy=reg 사용
+       */
+      function toListParamsFromDash({ period, farmCode, farmName, tableName, types, startDate, endDate }){
+        const qs = new URLSearchParams();
+        if (period) qs.set('period', period);
+        if (startDate) qs.set('startDate', startDate);
+        if (endDate)   qs.set('endDate',   endDate);
+        if (farmCode)  qs.set('farms', farmCode);
+        else if (farmName) qs.set('q', farmName);
+        if (tableName) qs.set('tables', tableName);
+        if (Array.isArray(types) && types.length) qs.set('types', types.join(','));
+        qs.set('page','1');
+        qs.set('dateBy', 'reg');
+        return qs;
+      }
+
+      function goList(qs){ location.href = `${LIST_BASE_URL}?${qs.toString()}`; }
+
+      function clampIndex(x, n){
+        const i = Math.round(Number(x));
+        return Math.max(0, Math.min(n - 1, i));
+      }
+
+      /* =========================================================================
+       * Chart.js 공통
+       * ========================================================================= */
+      const chartInstances = {};
+
+      // 데이터 없을 때 캔버스 중앙 안내문 표시
+      const CenterTextPlugin = {
+        id: 'centerText',
+        afterDraw(chart, args, opts){
+          const hasData = (chart.data?.datasets||[]).some(ds => (ds.data||[]).some(v=>{
+            if (typeof v==='number') return v>0;
+            if (v && typeof v==='object' && 'y' in v) return Number(v.y)>0;
+            return false;
+          }));
+          if (hasData) return;
+          const {ctx, chartArea} = chart; if (!chartArea) return;
+          const x = (chartArea.left + chartArea.right)/2;
+          const y = (chartArea.top + chartArea.bottom)/2;
+          ctx.save();
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillStyle = opts?.color || '#9CA3AF';
+          ctx.font = opts?.font || '14px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+          ctx.fillText(opts?.text || '데이터가 없습니다', x, y);
+          ctx.restore();
+        }
+      };
+      if (window.Chart?.register) Chart.register(CenterTextPlugin);
+
+      function destroyChartIfAny(canvasEl, id){
+        try {
+          const exist = Chart.getChart(canvasEl);
+          if (exist) exist.destroy();
+        } catch(_) {}
+        if (chartInstances[id]) {
+          try { chartInstances[id].destroy(); } catch(_) {}
+          chartInstances[id] = null;
+        }
+      }
+
+      // (일반용) 선형 X축 라인 차트 — 라벨간 ‘반칸’ 제거
+      function renderLine(id, labels, values){
+        const el = $(id); if (!el) return;
+        destroyChartIfAny(el, id);
+
+        const labelsRef = Array.isArray(labels) ? labels.slice() : [];
+        const points = (values||[]).map((y,i)=>({ x:i, y:Number(y||0) }));
+        const xmax = Math.max(points.length-1, 0);
+
+        const inst = new Chart(el, {
+          type: 'line',
+          data: { datasets: [{ label:'건수', data: points, tension:.3, fill:true }] },
+          options: {
+            parsing: false,  // {x,y} 그대로
+            responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{ display:false },
+              centerText:{ text:'데이터가 없습니다' },
+              tooltip:{
+                callbacks:{
+                  title: items => {
+                    if (!items?.length) return '';
+                    const rawx = items[0]?.raw?.x ?? items[0]?.parsed?.x ?? 0;
+                    const idx = clampIndex(rawx, labelsRef.length);
+                    return labelsRef[idx] ?? '';
+                  },
+                  label: item => `건수: ${item.parsed.y}`
+                }
+              }
+            },
+            scales:{
+              x:{
+                type:'linear',
+                min:0, max:xmax,
+                ticks:{
+                  stepSize:1, autoSkip:true, maxTicksLimit:12,
+                  callback: (v)=> labelsRef[clampIndex(v, labelsRef.length)] ?? ''
+                },
+                grid:{ offset:false }
+              },
+              y:{ beginAtZero:true, ticks:{ stepSize:1, precision:0 } }
+            },
+            interaction:{ mode:'nearest', intersect:false }
+          }
+        });
+        inst.$labels = labelsRef;
+        chartInstances[id] = inst;
+      }
+
+      // 막대 (horizontal=true → 가로막대)
+      function renderBar(id, labels, values, horizontal=true){
+        const el = $(id); if (!el) return;
+        destroyChartIfAny(el, id);
+        chartInstances[id] = new Chart(el, {
+          type:'bar',
+          data:{ labels, datasets:[{ label:'건수', data: values }]},
+          options:{
+            responsive:true, maintainAspectRatio:false,
+            indexAxis: horizontal ? 'y' : 'x',
+            plugins:{ legend:{display:false}, centerText:{ text:'데이터가 없습니다' } },
+            scales:{
+              x:{ beginAtZero:true, ticks:{ stepSize:1, precision:0 } },
+              y:{ beginAtZero:true, ticks:{ precision:0 } }
+            }
+          }
+        });
+      }
+
+      // 파이
+      function renderPie(id, labels, values){
+        const el = $(id); if (!el) return;
+        destroyChartIfAny(el, id);
+        chartInstances[id] = new Chart(el, {
+          type:'pie',
+          data:{ labels, datasets:[{ data: values }]},
+          options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'bottom'}, centerText:{ text:'데이터가 없습니다' } } }
+        });
+      }
+
+      // 차트 클릭시 콜백
+      function attachClickHandler(id, handler){
+        const inst = chartInstances[id]; if (!inst) return;
+        inst.options.onClick = (evt, elements)=>{
+          const el = elements?.[0]; if (!el) return;
+          const idx = el.index ?? el.element?.$context?.dataIndex ?? 0;
+          const ds0 = inst.data.datasets?.[0]?.data ?? [];
+          const datum = ds0[idx];
+          const value = (datum && typeof datum==='object' && 'y' in datum) ? datum.y : datum; // 라인 {x,y} 보호
+          const labelsArr = inst.$labels || inst.data.labels || [];
+          const label = labelsArr[idx];
+          handler({ index: idx, label, value });
+        };
+        inst.update();
+      }
+
+      // (연간 전용) 카테고리 축 라인 — 12개월만 그릴 때 깔끔
+      function renderMonthlyLine(id, labels, values){
+        const el = $(id); if (!el) return;
+        destroyChartIfAny(el, id);
+
+        chartInstances[id] = new Chart(el, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              label: '건수',
+              data: values.map(v => Number(v || 0)),
+              tension: .3,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            parsing: true,
+            plugins: {
+              legend: { display: false },
+              centerText: { text: '데이터가 없습니다' }
+            },
+            scales: {
+              x: {
+                type: 'category',
+                offset: false,
+                grid: { offset: false },
+                ticks: { autoSkip: true, maxTicksLimit: 12 }
+              },
+              y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }
+            },
+            interaction: { mode: 'nearest', intersect: false }
+          }
+        });
+      }
+
+      /* =========================================================================
+       * 월/연도 가공 유틸 (프론트만으로 연간 필터 구현)
+       * ========================================================================= */
+      function isYYYYMM(s){ return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(s||'').slice(0,7)); }
+      function addMonths(yyyyMM, k){
+        const [y, m] = yyyyMM.split('-').map(Number);
+        const d = new Date(y, m-1 + k, 1);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      }
+      function monthRange(minYYYYMM, maxYYYYMM){
+        const out = []; let cur = minYYYYMM;
+        while (cur <= maxYYYYMM){ out.push(cur); cur = addMonths(cur, 1); }
+        return out;
+      }
+      // /api/dash/monthly → 정규화(잘못된월 제거, 중복합산, 빈달 0 보간)
+      function normalizeMonthly(rows){
+        const map = new Map();
+        (rows || []).forEach(r=>{
+          const m = String(r.month||'').slice(0,7);
+          if (!isYYYYMM(m)) return;
+          const c = Number(r.count||0);
+          map.set(m, (map.get(m)||0) + (isNaN(c)?0:c));
+        });
+        const months = Array.from(map.keys()).sort();
+        if (!months.length) return { labels:[], values:[] };
+        const labels = monthRange(months[0], months[months.length-1]);
+        const values = labels.map(m => map.get(m) || 0);
+        return { labels, values };
+      }
+
+      // 제목/연도 셀렉트 UI
+      function setupYearControls(years, currentYear, onChange){
+        const canvas = document.getElementById('monthlyChart'); if (!canvas) return;
+        const titleEl = canvas.parentElement?.previousElementSibling; // h2
+        if (titleEl) titleEl.textContent = '연간 AS 건수';
+
+        let wrap = document.getElementById('yearControls');
+        if (!wrap){
+          titleEl?.insertAdjacentHTML('afterend', `
+            <div id="yearControls" class="mb-2 flex items-center gap-2 text-sm">
+              <label class="font-medium">연도</label>
+              <select id="yearSelect" class="border rounded px-2 py-1"></select>
+            </div>
+          `);
+          wrap = document.getElementById('yearControls');
+        }
+        const sel = document.getElementById('yearSelect');
+        sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+        sel.value = years.includes(currentYear) ? currentYear : (years.at(-1) || '');
+        sel.onchange = () => onChange(sel.value);
+
+        onChange(sel.value);
+      }
+
+      /* =========================================================================
+       * 1건이면 상세로 직행 (선택적으로 목록 JSON API 사용)
+       * ========================================================================= */
+      async function gotoDetailIfSingle(listParams, countHint){
+        if (Number(countHint) !== 1) {
+          goList(listParams);
+          return;
+        }
+        if (LIST_API_URL){
+          try {
+            const probe = new URLSearchParams(listParams.toString());
+            LIST_API_LIMIT_PARAMS.forEach(p => probe.set(p, '2'));
+            ;['page','_page'].forEach(p => probe.set(p, '1'));
+            const url = `${LIST_API_URL}?${probe.toString()}`;
+            const res = await fetch(url);
+            if (res.ok){
+              const data = await res.json();
+              const arr = data?.items || data?.content || data?.rows || data?.data || data || [];
+              if (Array.isArray(arr) && arr.length === 1){
+                const asId = arr[0]?.asId || arr[0]?.id;
+                if (asId){ location.href = `/as/detail/${asId}`; return; }
+              }
+            }
+          } catch(e){ console.error(e); }
+        }
+        listParams.set('autoview','1');
+        goList(listParams);
+      }
+
+      /* =========================================================================
+       * 요약 도넛 (전체/이번달/이번주/오늘) — 클릭시 목록(REG_DATE 기준)
+       * ========================================================================= */
+      async function fetchSummary(){
+        try{
+          const data = await fetchJSON('/api/dash/summary');
+          const container = $('summary-cards'); if (!container) return;
+          container.innerHTML = '';
+
+          const periods = ['전체','이번달','이번주','오늘'];
+          const periodKey = (p) => (p==='오늘' ? 'today' : (p==='이번주' ? '1w' : (p==='이번달' ? '1m' : 'all')));
+          const cats = ['장비','네트워크','모듈','기타'];
+
+          periods.forEach((period, i)=>{
+            const group = (data||[]).filter(d=>d.period===period);
+            const counts = Object.fromEntries(cats.map(c=>[c,0]));
+            group.forEach(g => { counts[g.statusLabel] = Number(g.count||0); });
+
+            const cid = `summary-donut-${i}`;
+            container.insertAdjacentHTML('beforeend', `
+              <div class="bg-white p-4 rounded-xl shadow border flex items-center gap-4">
+                <div class="min-w-0">
+                  <div class="text-sm font-semibold text-gray-600 mb-1">${period}</div>
+                  <div class="space-y-1 text-sm">
+                    ${cats.map(c=>`<div class="font-semibold truncate">${c}: ${counts[c]||0}</div>`).join('')}
+                  </div>
+                </div>
+                <div class="ml-auto w-[84px] h-[84px] sm:w-[92px] sm:h-[92px] flex items-center justify-center">
+                  <canvas id="${cid}"></canvas>
+                </div>
+              </div>
+            `);
+
+            const labels = cats;
+            const values = cats.map(c=>counts[c]||0);
+            const ctx = $(cid).getContext('2d');
+            destroyChartIfAny($(cid), cid);
+            if (values.reduce((a,b)=>a+b,0) === 0){
+              chartInstances[cid] = new Chart(ctx, {
+                type:'doughnut',
+                data:{ labels:[], datasets:[] },
+                options:{ plugins:{ legend:{display:false}, centerText:{text:'데이터 없음'} }, cutout:'65%' }
+              });
+            } else {
+              chartInstances[cid] = new Chart(ctx, {
+                type:'doughnut',
+                data:{ labels, datasets:[{ data: values }] },
+                options:{ plugins:{ legend:{display:false} }, cutout:'65%', responsive:true, maintainAspectRatio:false }
+              });
+            }
+            attachClickHandler(cid, ({label, value})=>{
+              const params = toListParamsFromDash({ period: periodKey(period), types:[label] });
+              gotoDetailIfSingle(params, value);
+            });
+          });
+        }catch(e){ console.error(e); }
+      }
+
+      /* =========================================================================
+       * 연간 보기 (월별 API를 이용해 프론트에서 연단위로 렌더, REG_DATE 기준)
+       * ========================================================================= */
+      let YEARLY_INDEX = {};   // { '2025': { '2025-01':n, ... } }
+      let YEARLY_MONTHS = {};  // { '2025': ['2025-01',...'2025-12'] }
+
+      async function fetchMonthly(){
+        try{
+          const raw = await fetchJSON('/api/dash/monthly');   // [{month:'YYYY-MM', count:int}]
+          const norm = normalizeMonthly(raw);                 // {labels:[...], values:[...]}
+
+          if (!norm.labels.length){
+            renderBar('monthlyChart', [], [], false);
+            setupYearControls([], String(new Date().getFullYear()), ()=>{});
+            return;
+          }
+
+          YEARLY_INDEX = {}; YEARLY_MONTHS = {};
+          norm.labels.forEach((ym, i)=>{
+            const y = ym.slice(0,4);
+            if (!YEARLY_INDEX[y]) YEARLY_INDEX[y] = {};
+            YEARLY_INDEX[y][ym] = (YEARLY_INDEX[y][ym] || 0) + Number(norm.values[i]||0);
+          });
+          Object.keys(YEARLY_INDEX).forEach(y=>{
+            const months = Array.from({length:12},(_,k)=>`${y}-${String(k+1).padStart(2,'0')}`);
+            YEARLY_MONTHS[y] = months;
+            months.forEach(m=>{ if (!(m in YEARLY_INDEX[y])) YEARLY_INDEX[y][m] = 0; });
+          });
+
+          const yearsAll = Object.keys(YEARLY_INDEX).sort();
+          const yearsWithData = yearsAll.filter(y => Object.values(YEARLY_INDEX[y]).some(v => v>0));
+          const currentYear = String(new Date().getFullYear());
+
+          setupYearControls(yearsWithData.length ? yearsWithData : yearsAll, currentYear, (year)=>{
+            if (!year) { renderBar('monthlyChart', [], [], false); return; }
+
+            const labels = YEARLY_MONTHS[year] || [];
+            const values = labels.map(m => YEARLY_INDEX[year][m] || 0);
+
+            renderMonthlyLine('monthlyChart', labels, values);
+
+            attachClickHandler('monthlyChart', ({ index, value })=>{
+              const label = labels[index]; if (!label) return;
+              const [y, m] = label.split('-').map(Number);
+              const last = new Date(y, m, 0).getDate();
+              const params = toListParamsFromDash({
+                startDate: `${label}-01T00:00`,
+                endDate:   `${label}-${String(last).padStart(2,'0')}T23:59`
+              });
+              gotoDetailIfSingle(params, value);
+            });
+          });
+
+        }catch(e){
+          console.error(e);
+          renderBar('monthlyChart', [], [], false);
+        }
+      }
+
+      /* =========================================================================
+       * 예정일 임박 리스트 (PLAN_DATE 기준 유지)
+       * ========================================================================= */
+      async function fetchUpcoming(){
+        try{
+          const data = await fetchJSON('/api/dash/upcoming?limit=10');
+          const $tbody = $('upcomingTable');
+          const $list  = $('upcomingList');
+
+          if ($tbody){
+            if (!data.length){
+              $tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-6 text-gray-400 text-center">예정된 AS가 없습니다</td></tr>`;
+            } else {
+              $tbody.innerHTML = data.map(d=>`
+                <tr class="hover:bg-blue-50 cursor-pointer" onclick="location.href='/as/detail/${d.asId}'">
+                  <td class="px-4 py-2">${d.asId}</td>
+                  <td class="px-4 py-2 truncate max-w-[200px]" title="${d.farmName||'-'}">${d.farmName||'-'}</td>
+                  <td class="px-4 py-2 hidden lg:table-cell">${d.farmCode||'-'}</td>
+                  <td class="px-4 py-2 hidden xl:table-cell truncate max-w-[200px]" title="${(d.regionName||'').trim()}">${(d.regionName||'').trim()||'-'}</td>
+                  <td class="px-4 py-2 hidden lg:table-cell truncate max-w-[200px]" title="${(d.asType||'').trim()}">${(d.asType||'').trim()||'-'}</td>
+                  <td class="px-4 py-2 hidden xl:table-cell truncate max-w-[200px]" title="${d.projectName||'-'}">${d.projectName||'-'}</td>
+                  <td class="px-4 py-2">${formatDateTime(d.reqDate)}</td>
+                  <td class="px-4 py-2">${formatDateTime(d.planDate)}</td>
+                </tr>
+              `).join('');
+            }
+          }
+
+          if ($list){
+            if (!data.length){
+              $list.innerHTML = `<div class="text-gray-400 text-center py-6">예정된 AS가 없습니다</div>`;
+            } else {
+              $list.innerHTML = data.map(d=>`
+                <button class="w-full text-left p-3 rounded-lg border bg-white border-gray-200 hover:bg-gray-50"
+                        onclick="location.href='/as/detail/${d.asId}'">
+                  <div class="flex items-center justify-between">
+                    <div class="font-semibold truncate">${d.farmName||'-'}</div>
+                    <div class="text-xs ml-2 shrink-0">${d.asType||''}</div>
+                  </div>
+                  <div class="mt-1 text-xs text-gray-500 truncate">${d.farmCode||'-'} · ${(d.regionName||'').trim()||'-'}</div>
+                  <div class="mt-1 text-xs text-gray-600">예정 ${formatDateTime(d.planDate)} · 접수 ${formatDateTime(d.reqDate)}</div>
+                </button>
+              `).join('');
+            }
+          }
+        }catch(e){ console.error(e); }
+      }
+
+      /* =========================================================================
+       * 종합(TopN)
+       * ========================================================================= */
+      let AGG_RAW = [];
+      function initAggregate(){
+        $('aggReload')?.classList.add('hidden');
+        $('aggReload')?.addEventListener('click', fetchAggregate);
+        ['aggDimension','aggPeriod','aggTopN','aggChartType'].forEach(id => {
+          $(id)?.addEventListener('change', fetchAggregate);
+        });
+        fetchAggregate();
+      }
+      async function fetchAggregate(){
+        const dim  = $('aggDimension')?.value || 'farm';
+        const per  = $('aggPeriod')?.value || 'all';
+        const topN = $('aggTopN')?.value   || '5';
+        const type = $('aggChartType')?.value || 'bar';
+
+        try{
+          const d = await fetchJSON(`/api/dash/aggregate?dimension=${encodeURIComponent(dim)}&period=${encodeURIComponent(per)}&topN=${encodeURIComponent(topN)}`);
+          AGG_RAW = Array.isArray(d) ? d : [];
+          const labels = AGG_RAW.map(x=>pickLabel(x));
+          const values = AGG_RAW.map(x=>Number(x.count||0));
+
+          if (!labels.length || values.every(v=>!v)){
+            renderBar('aggregateChart', [], [], true);
+          } else {
+            if (type==='line') renderLine('aggregateChart', labels, values);
+            else if (type==='pie') renderPie('aggregateChart', labels, values);
+            else renderBar('aggregateChart', labels, values, true);
+          }
+
+          attachClickHandler('aggregateChart', ({index, label, value})=>{
+            const item = AGG_RAW[index] || {};
+            let params;
+            if (dim==='farm'){
+              params = toListParamsFromDash({ period: per, farmCode: item.farmCode || '', farmName: item.farmName || label });
+            } else if (dim==='equipment'){
+              params = toListParamsFromDash({ period: per, tableName: item.tableName || label });
+            } else {
+              params = toListParamsFromDash({ period: per, types:[label] });
+            }
+            gotoDetailIfSingle(params, value);
+          });
+        }catch(e){
+          console.error(e);
+          renderBar('aggregateChart', [], [], true);
+        }
+      }
+
+      /* =========================================================================
+       * 상세(농장/장비/기간) — ‘기타’ 합산 규칙
+       * ========================================================================= */
+      const _OFFICIAL_CATS = new Set(['네트워크','모듈','장비']);
+      function to4Cats(raw){
+        const s = (raw ?? '').toString().trim();
+        return _OFFICIAL_CATS.has(s) ? s : '기타';
+      }
+
+      let ALL_FARMS = [], ALL_EQUIPS = [];
+      function populateSelect($sel, placeholder, items, valueKey='code', labelKey='name', preserveValue=null){
+        const prev = (preserveValue ?? $sel.value) || '';
+        const html = [`<option value="">${placeholder}</option>`]
+          .concat((items||[]).map(x=>{
+            const v = x[valueKey] ?? pickLabel(x);
+            const t = x[labelKey] ?? pickLabel(x);
+            const sel = (v===prev) ? ' selected' : '';
+            return `<option value="${v}"${sel}>${t}</option>`;
+          }));
+        $sel.innerHTML = html.join('');
+        if (![...$sel.options].some(o=>o.value===prev)) $sel.value='';
+      }
+
+      function initDetail(){ if ($('detailChart')) setupDetailFilters(); }
+
+      async function setupDetailFilters(){
+        const $farm  = $('detailFarm');
+        const $equip = $('detailEquip');
+
+        $('detailReload')?.classList.add('hidden');
+
+        try{
+          ALL_FARMS  = await fetchJSON('/api/dash/farms');       // [{code,name}]
+          ALL_EQUIPS = await fetchJSON('/api/dash/equipments');  // [{code,name}]
+        }catch(e){ console.error(e); ALL_FARMS = ALL_EQUIPS = []; }
+        populateSelect($farm, '전체 농장', ALL_FARMS);
+        populateSelect($equip,'전체 장비', ALL_EQUIPS);
+
+        async function refreshEquipOptions(preserve=true){
+          const farmCode = $farm.value;
+          const keep = preserve ? $equip.value : '';
+          if (!farmCode){ populateSelect($equip,'전체 장비', ALL_EQUIPS, 'code','name', keep); return; }
+          const list = await fetchJSON(`/api/dash/equipments/by-farm?farmCode=${encodeURIComponent(farmCode)}`);
+          populateSelect($equip,'전체 장비', list, 'code','name', keep);
+        }
+        async function refreshFarmOptions(preserve=true){
+          const tableName = $equip.value;
+          const keep = preserve ? $farm.value : '';
+          if (!tableName){ populateSelect($farm,'전체 농장', ALL_FARMS, 'code','name', keep); return; }
+          const list = await fetchJSON(`/api/dash/farms/by-equipment?tableName=${encodeURIComponent(tableName)}`);
+          populateSelect($farm,'전체 농장', list, 'code','name', keep);
+        }
+
+        $farm.addEventListener('change', async ()=>{ await refreshEquipOptions(true); fetchDetailAggregate(); });
+        $equip.addEventListener('change', async ()=>{ await refreshFarmOptions(true); fetchDetailAggregate(); });
+        $('detailPeriod')?.addEventListener('change', fetchDetailAggregate);
+        $('detailReload')?.addEventListener('click', fetchDetailAggregate);
+
+        fetchDetailAggregate();
+      }
+
+      function updateDetailTitle(mode, farmTxt, equipTxt){
+        const $title = $('detailTitle');
+        let title = '상세';
+        if (mode==='catAll')            title = '문제유형';
+        else if (mode==='catFarm')      title = `"${farmTxt}" 문제유형`;
+        else if (mode==='farmsByEquip') title = `"${equipTxt}" 장비 사용 농장`;
+        else if (mode==='timeseries')   title = `"${farmTxt}" × "${equipTxt}" 타임라인`;
+        if ($title) $title.textContent = title;
+      }
+
+      async function fetchDetailAggregate(){
+        const $chart = $('detailChart'); if (!$chart) return;
+        const farmCode  = $('detailFarm')?.value || '';
+        const tableName = $('detailEquip')?.value || '';
+        const per       = $('detailPeriod')?.value || 'all';
+        const farmTxt   = $('detailFarm')?.selectedOptions?.[0]?.text || '전체 농장';
+        const equipTxt  = $('detailEquip')?.selectedOptions?.[0]?.text || '전체 장비';
+
+        try{
+          // 1) 전체/전체 → 4분류
+          if (!farmCode && !tableName){
+            const d = await fetchJSON(`/api/dash/aggregate?dimension=category&period=${encodeURIComponent(per)}&topN=100`);
+            const order = ['네트워크','모듈','장비','기타'];
+            const agg = { '네트워크':0,'모듈':0,'장비':0,'기타':0 };
+            (d||[]).forEach(x => { const k = to4Cats(pickLabel(x)); agg[k] = (agg[k]||0) + Number(x.count||0); });
+            renderBar('detailChart', order, order.map(k=>agg[k]||0), true);
+            updateDetailTitle('catAll', farmTxt, equipTxt);
+            attachClickHandler('detailChart', ({label, value})=>{
+              const params = toListParamsFromDash({ period: per, types:[label] });
+              gotoDetailIfSingle(params, value);
+            });
+            return;
+          }
+
+          // 2) 농장만 선택 → 4분류 강제 합산
+          if (farmCode && !tableName){
+            const d = await fetchJSON(`/api/dash/farm/category?farmCode=${encodeURIComponent(farmCode)}&period=${encodeURIComponent(per)}`);
+            const order = ['네트워크','모듈','장비','기타'];
+            const agg = { '네트워크':0,'모듈':0,'장비':0,'기타':0 };
+            (d||[]).forEach(x=>{
+              const raw = pickLabel(x) ?? x.asType ?? x.category;
+              const k = to4Cats(raw);
+              agg[k] = (agg[k]||0) + Number(x.count||0);
+            });
+            renderBar('detailChart', order, order.map(k=>agg[k]||0), true);
+            updateDetailTitle('catFarm', farmTxt, equipTxt);
+            attachClickHandler('detailChart', ({label, value})=>{
+              const params = toListParamsFromDash({ period: per, farmCode, types:[label] });
+              gotoDetailIfSingle(params, value);
+            });
+            return;
+          }
+
+          // 3) 장비만 선택 → 해당 장비 사용하는 농장 Top10
+          if (!farmCode && tableName){
+            const d = (await fetchJSON(`/api/dash/equipment/farm?tableName=${encodeURIComponent(tableName)}&period=${encodeURIComponent(per)}`)).slice(0,10);
+            const labels = (d||[]).map(x=> x.farmName || pickLabel(x));
+            const values = (d||[]).map(x=> Number(x.count||0));
+            if (!labels.length || values.every(v=>!v)){ renderBar('detailChart', [], [], true); updateDetailTitle('farmsByEquip', farmTxt, equipTxt); return; }
+            renderBar('detailChart', labels, values, true);
+            updateDetailTitle('farmsByEquip', farmTxt, equipTxt);
+            attachClickHandler('detailChart', ({index, value})=>{
+              const item = d[index] || {};
+              const params = toListParamsFromDash({ period: per, tableName, farmCode: item.farmCode, farmName: item.farmName });
+              gotoDetailIfSingle(params, value);
+            });
+            return;
+          }
+
+          // 4) 농장+장비 → 타임라인 (월/일 버킷)
+          const bucket = (per==='1d'||per==='1w') ? 'day' : 'month';
+          let dataTs = await fetchJSON(`/api/dash/timeSeries?period=${encodeURIComponent(per)}&bucket=${bucket}&farmCode=${encodeURIComponent(farmCode)}&tableName=${encodeURIComponent(tableName)}`);
+          dataTs = Array.isArray(dataTs) ? dataTs : [];
+          const labels = dataTs.map(x => x.bucket);
+          const values = dataTs.map(x => Number(x.count||0));
+          renderBar('detailChart', labels, values, false);
+          updateDetailTitle('timeseries', farmTxt, equipTxt);
+          attachClickHandler('detailChart', ({index, label, value})=>{
+            const row = dataTs[index] || {};
+            const params = toListParamsFromDash({
+              period:'', farmCode, tableName,
+              startDate: row.fromDate || (label.length===7 ? `${label}-01T00:00` : `${label}T00:00`),
+              endDate:   row.toDate   || (label.length===7 ? `${label}-31T23:59` : `${label}T23:59`)
+            });
+            gotoDetailIfSingle(params, value);
+          });
+        }catch(e){
+          console.error(e);
+          renderBar('detailChart', [], [], true);
+        }
+      }
+
+    /* =========================================================================
+     * 지역별 건수(지도) — /api/dash/geo/sido 사용
+     * ========================================================================= */
+    function renderSidoMap(){
+      const el = $('sidoMap'); if(!el) return;
+
+      const map = L.map('sidoMap', { zoomControl:true }).setView([36.5,127.8],7);
+
+      /* =========================================================================
+       * OpenStreetMap 정책상 출처 표기 필수
+       * ========================================================================= */
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom:18,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      // 선택: Leaflet prefix 제거
+      map.attributionControl.setPrefix(false);
+
+      const FULL_TO_SHORT = {
+        '서울특별시':'서울','부산광역시':'부산','대구광역시':'대구','인천광역시':'인천',
+        '광주광역시':'광주','대전광역시':'대전','울산광역시':'울산','세종특별자치시':'세종',
+        '경기도':'경기','강원특별자치도':'강원','충청북도':'충북','충청남도':'충남',
+        '전북특별자치도':'전북','전라남도':'전남','경상북도':'경북','경상남도':'경남','제주특별자치도':'제주'
+      };
+      const getRaw = p => (p && (p['name:ko'] || p.name || p.CTP_KOR_NM || p.SIG_KOR_NM)) || '';
+      const toShort = raw => FULL_TO_SHORT[raw] || raw;
+      const isPolyLike = g => g && (/Polygon/i.test(g.type) || (g.type==='GeometryCollection' && (g.geometries||[]).some(gg=>/Polygon/i.test(gg.type))));
+
+      Promise.all([ fetchJSON('/geo/sido.json'), fetchJSON('/api/dash/geo/sido') ])
+        .then(([geo, rows])=>{
+          const fc = geo?.type==='FeatureCollection' ? geo : (geo?.response?.result?.featureCollection);
+          if(!fc?.features) throw new Error('유효한 GeoJSON 아님');
+
+          // rows 예시: [{sido:'경기', as_cnt:123}, ...]
+          const counts = {};
+          (rows||[]).forEach(r=>{
+            const k = String(r.sido||'').trim();
+            counts[k] = (counts[k]||0) + Number(r.as_cnt||0);
+          });
+
+          // === 비중(% of total) 계산 ===
+          const total = Object.values(counts).reduce((a,b)=>a+ b, 0);
+          const pct = v => (total ? (v/total) : 0); // 0~1
+
+          // 권장 구간: 0–5–10–15–20–20%+
+          const breaks = [0, 0.05, 0.10, 0.15, 0.20, 1.0];
+          const colorOfPct = p =>
+              p >= breaks[4] ? '#dc2626' : // 20%+
+              p >= breaks[3] ? '#ea580c' : // 15–20%
+              p >= breaks[2] ? '#f59e0b' : // 10–15%
+              p >= breaks[1] ? '#84cc16' : // 5–10%
+                               '#22c55e';  // 0–5%
+
+            const layer = L.geoJSON(fc, {
+              filter: f => isPolyLike(f.geometry),
+              style: f => {
+                const name = toShort(getRaw(f.properties));
+                const v    = counts[name] || 0;
+                const p    = pct(v);
+                return { color:'#6b7280', weight:1, fillColor:colorOfPct(p), fillOpacity:.45 };
+              },
+              onEachFeature: (f,l) => {
+                const name = toShort(getRaw(f.properties));
+                const v    = counts[name] || 0;
+                const p    = pct(v) * 100;
+                l.bindTooltip(`${name} : ${v}건 (${p.toFixed(1)}%)`, {sticky:true, direction:'top'});
+                l.on('mouseover', ()=> l.setStyle({weight:2, fillOpacity:.55}));
+                l.on('mouseout',  ()=> l.setStyle({weight:1, fillOpacity:.45}));
+                l.on('click',     ()=> location.href = `/as/list?q=${encodeURIComponent(name)}`);
+              }
+            }).addTo(map);
+
+            // --- 범례(반투명 배경 + 칩 테두리) ---
+            const legend = L.control({position:'bottomright'});
+            legend.onAdd = function(){
+              const div = L.DomUtil.create('div','legend legend--soft');
+              let html = '<b>AS 건수 비중 (%)</b><br>';
+              for (let i=0;i<breaks.length-1;i++){
+                const from = breaks[i], to = breaks[i+1];
+                const mid  = (from + Math.min(to, 0.9999)) / 2;
+                const label = (to === 1.0)
+                  ? `${Math.round(from*100)}%+`
+                  : `${Math.round(from*100)}–${Math.round(to*100)}%`;
+                html += `<i style="background:${colorOfPct(mid)}"></i> ${label}<br>`;
+              }
+              div.innerHTML = html; return div;
+            };
+            legend.addTo(map);
+
+          setTimeout(()=>map.invalidateSize(),0);
+        })
+        .catch(e=>{
+          console.error(e);
+          el.insertAdjacentHTML('afterend','<div class="text-red-600 text-sm mt-2">지역별 지도 데이터를 불러오지 못했습니다.</div>');
+        });
+    }
+
+      /* =========================================================================
+       * 부트스트랩
+       * ========================================================================= */
+      document.addEventListener('DOMContentLoaded', () => {
+        fetchSummary();     // 요약 도넛
+        fetchMonthly();     // 연간 보기
+        renderSidoMap();    // ✅ 지역별 건수(지도) (/api/dash/geo/sido)
+        fetchUpcoming();    // 임박 일정
+        initAggregate();    // 종합(TopN)
+        initDetail();       // 상세
+      });
+    })();
+</script>
+
+</body>
+</html>

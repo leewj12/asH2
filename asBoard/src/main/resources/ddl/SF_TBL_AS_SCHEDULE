@@ -1,0 +1,12 @@
+CREATE TABLE wjlee.dbo.SF_TBL_AS_SCHEDULE (
+    SCHEDULE_ID     BIGINT IDENTITY(1,1) PRIMARY KEY,       -- 일정 고유 ID
+    AS_ID           BIGINT NOT NULL,                        -- FK → AS_HEADER6.AS_ID
+    PLAN_DATE       DATETIME NOT NULL,                      -- 예정일
+    COMPLETE_DATE   DATETIME NULL,                          -- 완료일 (체크 시 자동입력)
+    AS_CONTENT      VARCHAR(MAX) NULL,                      -- 점검 내용
+    REG_DATE        DATETIME DEFAULT GETDATE(),             -- 등록일시
+    UPD_DATE        DATETIME DEFAULT GETDATE(),             -- 수정일시
+    USE_FLAG        NCHAR(1) NOT NULL DEFAULT '1',          -- 논리 삭제
+    CONSTRAINT FK_AS_SCHEDULE_HEADER FOREIGN KEY (AS_ID)
+        REFERENCES wjlee.dbo.SF_TBL_AS_HEADER(AS_ID)
+);

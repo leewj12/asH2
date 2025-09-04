@@ -1,0 +1,10 @@
+# [local] 로컬 개발 프로필 전용: 업로드 루트 경로 설정
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+asboard:
+  file:
+    # Windows 경로는 따옴표 + 슬래시(/) 권장
+    upload-root: "D:/999_AS/asBoard/src/main/resources/static/upload"
