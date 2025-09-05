@@ -7,4 +7,4 @@ spring:
 asboard:
   file:
     # Windows 경로는 따옴표 + 슬래시(/) 권장
-    upload-root: "D:/999_AS/asBoard/src/main/resources/static/upload"
+    upload-root: "D:/999_AS/src/main/resources/static/upload"
