@@ -1,0 +1,20 @@
+# [local] 로컬 개발 프로필 전용: 업로드 루트 경로 설정
+spring:
+  config:
+    activate:
+      on-profile: h2
+  datasource:
+    # 파일 모드(컨테이너 재시작 시 유지될 수도/안 될 수도… 데모용으로만 생각)
+    url: jdbc:h2:file:./data/demo;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/h2/schema.sql
+      data-locations: classpath:db/h2/data.sql
+
+# H2 콘솔(로컬 확인용)
+spring.h2.console.enabled: true
+spring.h2.console.path: /h2-console

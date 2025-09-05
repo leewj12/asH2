@@ -1,0 +1,666 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.inpro.asBoard.as.mapper.DashMapper">
+
+    <!--========================================================================
+    // 1) 공통 조각: REG_DATE 기준 날짜식
+    // ID   : __date_expr_regdate
+    // Param: -
+    // 설명 : 헤더 등록일(H.REG_DATE)을 DATE 단위로 사용
+    //========================================================================-->
+    <sql id="__date_expr_regdate">
+        CONVERT(date, H.REG_DATE)
+    </sql>
+
+    <!--========================================================================
+    // 2) 공통 조각: 기간 프리셋 필터(REG_DATE 기준, 고정 경계)
+    // ID   : __period_filter_regdate
+    // Param: period ('today'|'1d'|'1w'|'1m'|기타=all)
+    // 설명 : H.REG_DATE를 기준으로 today/1w/1m 경계를 적용
+    // 주의 : '1w'는 @@DATEFIRST 영향을 받음(주 시작 요일 고정 필요 시 서버 설정 확인)
+    //========================================================================-->
+    <sql id="__period_filter_regdate">
+        <choose>
+            <!-- today / 1d -->
+            <when test="period == 'today' or period == '1d'">
+                <![CDATA[
+                    AND H.REG_DATE >= DATEADD(day, DATEDIFF(day, 0, GETDATE()), 0)
+                    AND H.REG_DATE <  DATEADD(day, DATEDIFF(day, 0, GETDATE()) + 1, 0)
+                ]]>
+            </when>
+
+            <!-- 이번주(월요일 시작 고정) -->
+            <when test="period == '1w'">
+                <![CDATA[
+                    AND H.REG_DATE >= DATEADD(day,
+                        -((DATEPART(weekday, CAST(GETDATE() AS date)) + @@DATEFIRST - 2) % 7),
+                        CAST(GETDATE() AS date))
+                    AND H.REG_DATE <  DATEADD(day,
+                        7 - ((DATEPART(weekday, CAST(GETDATE() AS date)) + @@DATEFIRST - 2) % 7),
+                        CAST(GETDATE() AS date))
+                ]]>
+            </when>
+
+            <!-- 이번달(달력 월 고정) -->
+            <when test="period == '1m'">
+                <![CDATA[
+                    AND H.REG_DATE >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                    AND H.REG_DATE <  DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+                ]]>
+            </when>
+
+            <otherwise><!-- all --></otherwise>
+        </choose>
+    </sql>
+
+    <!--========================================================================
+    // 3) 공통 조각: AS_TYPE → 4그룹 라벨
+    // ID   : __as_type_label
+    // Param: -
+    // 설명 : AS_TYPE을 장비/네트워크/모듈/기타로 정규화
+    //========================================================================-->
+    <sql id="__as_type_label">
+        CASE
+        WHEN H.AS_TYPE IS NULL OR LTRIM(RTRIM(H.AS_TYPE)) = N'' OR H.AS_TYPE = N'(미지정)' THEN N'기타'
+        WHEN H.AS_TYPE LIKE N'%네트워크%' OR H.AS_TYPE LIKE N'%통신%'
+        OR LOWER(H.AS_TYPE) LIKE '%network%' OR LOWER(H.AS_TYPE) LIKE '%comm%' THEN N'네트워크'
+        WHEN H.AS_TYPE LIKE N'%모듈%' OR LOWER(H.AS_TYPE) LIKE '%module%' OR LOWER(H.AS_TYPE) LIKE '%mdl%' THEN N'모듈'
+        WHEN H.AS_TYPE LIKE N'%장비%' OR LOWER(H.AS_TYPE) LIKE '%equip%'  OR LOWER(H.AS_TYPE) LIKE '%eqp%' THEN N'장비'
+        ELSE N'기타'
+        END
+    </sql>
+
+    <!--========================================================================
+    // 4) 월별 통계 (REG_DATE 기준)
+    // ID   : selectMonthlyStats
+    // Param: -
+    // 설명 : 월 키(YYYY-MM)별 건수 집계
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectMonthlyStats" resultType="DashMonthlyStatDto">
+        WITH BASE AS (
+        SELECT
+        DATEFROMPARTS(
+        YEAR(<include refid="__date_expr_regdate"/>),
+        MONTH(<include refid="__date_expr_regdate"/>),
+        1
+        ) AS mkey,
+        H.AS_ID
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        WHERE H.USE_FLAG='1'
+        ),
+        AGG AS (
+        SELECT mkey, COUNT(DISTINCT AS_ID) AS cnt
+        FROM BASE
+        GROUP BY mkey
+        )
+        SELECT CONVERT(varchar(7), mkey, 23) AS [month],
+        cnt AS [count]
+        FROM AGG
+        ORDER BY mkey ASC
+    </select>
+
+    <!--========================================================================
+    // 5) 임박 리스트(PLAN_DATE 기준)
+    // ID   : selectUpcomingList
+    // Param: limit (required, int)   // TOP ${limit} 사용 → 반드시 서버에서 정수/상한 검증
+    // 설명 : AS별 가장 가까운 PLAN_DATE 1건 기준으로 임박 목록 TopN
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectUpcomingList" resultType="DashUpcomingDto" parameterType="map">
+        WITH NEXT_PLAN AS (
+        SELECT
+        S.AS_ID,
+        S.PLAN_DATE,
+        ROW_NUMBER() OVER (PARTITION BY S.AS_ID ORDER BY S.PLAN_DATE) AS RN
+        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE S
+        JOIN wjlee.dbo.SF_TBL_AS_HEADER   H ON H.AS_ID = S.AS_ID
+        WHERE S.USE_FLAG = '1'
+        AND H.USE_FLAG = '1'
+        -- ✅ 오늘 00:00부터 계획(인덱스 사용 가능)
+        AND S.PLAN_DATE >= DATEADD(day, DATEDIFF(day, 0, GETDATE()), 0)
+        -- ✅ 완료일이 오늘까지인 건 제외 (내일 00:00 이전 완료는 제외)
+        AND (S.COMPLETE_DATE IS NULL
+        OR S.COMPLETE_DATE >= DATEADD(day, DATEDIFF(day, 0, GETDATE()) + 1, 0))
+        )
+        SELECT TOP ${limit}
+        H.AS_ID         AS asId,
+        F.FARM_CODE     AS farmCode,
+        F.FARM_NAME     AS farmName,
+        F.REGION_NAME   AS regionName,
+        H.AS_TYPE       AS asType,
+        F.PROJECT_NAME  AS projectName,
+        H.REQ_DATE      AS reqDate,
+        NP.PLAN_DATE    AS planDate,
+        CAST(CASE WHEN H.STATUS_FLAG = N'1' THEN 1 ELSE 0 END AS bit) AS statusFlag
+        FROM NEXT_PLAN NP
+        JOIN wjlee.dbo.SF_TBL_AS_HEADER   H ON H.AS_ID = NP.AS_ID
+        LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM  F ON F.FARM_CODE = H.FARM_CODE
+        WHERE NP.RN = 1
+        ORDER BY NP.PLAN_DATE ASC, H.AS_ID ASC
+    </select>
+
+    <!--========================================================================
+    // 6) 요약(4분류 × 기간) — REG_DATE + from/to
+    // ID   : selectStatusCountByPeriod
+    // Param(map):
+    //   - fromDate : LocalDate (optional, 포함)
+    //   - toDate   : LocalDate (optional, 포함)
+    // 설명 : 기간 조건(from/to)으로 4분류 상태 카운트 집계
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectStatusCountByPeriod" resultType="DashSummaryRow">
+        SELECT
+        <include refid="__as_type_label"/> AS statusLabel,
+        COUNT(DISTINCT H.AS_ID)            AS [count]
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        WHERE H.USE_FLAG = '1'
+        <if test="fromDate != null or toDate != null">
+            <if test="fromDate != null">
+                <![CDATA[ AND CONVERT(date, H.REG_DATE) >= #{fromDate} ]]>
+            </if>
+            <if test="toDate != null">
+                <![CDATA[ AND CONVERT(date, H.REG_DATE) <  DATEADD(day, 1, #{toDate}) ]]>
+            </if>
+        </if>
+        GROUP BY <include refid="__as_type_label"/>
+        ORDER BY [count] DESC, statusLabel ASC
+    </select>
+
+    <!--========================================================================
+    // 7) 종합(범용) — TopN + firstAsId (REG_DATE 기준)
+    // ID   : selectAggregate
+    // Param:
+    //   - dimension (required, string) : farm|equipment|category
+    //   - period    (required, string) : all|today|1w|1m(등)
+    //   - topN      (required, int)
+    // 설명 : dimension 기준 TopN 집계, 1건일 경우 대표 AS_ID(firstAsId) 제공
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectAggregate" resultType="DashAggregateItemDto">
+        <choose>
+            <!-- dimension=farm -->
+            <when test="dimension == 'farm'">
+                WITH G AS (
+                SELECT
+                F.FARM_CODE                      AS farmCode,
+                ISNULL(F.FARM_NAME,N'(미지정)')  AS farmName,
+                COUNT(DISTINCT H.AS_ID)          AS cnt,
+                MIN(H.AS_ID)                     AS minAsId
+                FROM wjlee.dbo.SF_TBL_AS_HEADER H
+                LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM F
+                ON F.FARM_CODE = H.FARM_CODE
+                WHERE H.USE_FLAG='1'
+                <include refid="__period_filter_regdate"/>
+                GROUP BY F.FARM_CODE, F.FARM_NAME
+                ),
+                R AS (
+                SELECT
+                farmCode, farmName, cnt,
+                CASE WHEN cnt=1 THEN minAsId END AS firstAsId,
+                ROW_NUMBER() OVER (ORDER BY cnt DESC, farmName ASC) rn
+                FROM G
+                )
+                SELECT
+                farmName AS label,
+                cnt      AS [count],
+                farmCode,
+                farmName,
+                firstAsId
+                FROM R
+                WHERE rn &lt;= #{topN}
+                ORDER BY cnt DESC, farmName ASC
+            </when>
+
+            <!-- dimension=equipment -->
+            <when test="dimension == 'equipment'">
+                WITH G AS (
+                SELECT
+                E.TABLE_NAME                 AS tableName,
+                COUNT(DISTINCT H.AS_ID)      AS cnt,
+                MIN(H.AS_ID)                 AS minAsId
+                FROM wjlee.dbo.SF_TBL_AS_HEADER H
+                JOIN wjlee.dbo.SF_TBL_AS_EQUIP  E
+                ON E.AS_ID = H.AS_ID AND E.USE_FLAG='1'
+                WHERE H.USE_FLAG='1'
+                <include refid="__period_filter_regdate"/>
+                GROUP BY E.TABLE_NAME
+                ),
+                R AS (
+                SELECT
+                tableName, cnt,
+                CASE WHEN cnt=1 THEN minAsId END AS firstAsId,
+                ROW_NUMBER() OVER (ORDER BY cnt DESC, tableName ASC) rn
+                FROM G
+                )
+                SELECT
+                tableName AS label,
+                cnt       AS [count],
+                tableName,
+                firstAsId
+                FROM R
+                WHERE rn &lt;= #{topN}
+                ORDER BY cnt DESC, label ASC
+            </when>
+
+            <!-- dimension=category -->
+            <when test="dimension == 'category'">
+                WITH G AS (
+                SELECT
+                CASE
+                WHEN H.AS_TYPE IS NULL OR LTRIM(RTRIM(H.AS_TYPE))='' THEN N'기타'
+                WHEN H.AS_TYPE IN (N'장비',N'네트워크',N'모듈')      THEN H.AS_TYPE
+                ELSE N'기타'
+                END                          AS category,
+                COUNT(DISTINCT H.AS_ID)      AS cnt,
+                MIN(H.AS_ID)                 AS minAsId
+                FROM wjlee.dbo.SF_TBL_AS_HEADER H
+                WHERE H.USE_FLAG='1'
+                <include refid="__period_filter_regdate"/>
+                GROUP BY CASE
+                WHEN H.AS_TYPE IS NULL OR LTRIM(RTRIM(H.AS_TYPE))='' THEN N'기타'
+                WHEN H.AS_TYPE IN (N'장비',N'네트워크',N'모듈')      THEN H.AS_TYPE
+                ELSE N'기타'
+                END
+                ),
+                R AS (
+                SELECT
+                category, cnt,
+                CASE WHEN cnt=1 THEN minAsId END AS firstAsId,
+                ROW_NUMBER() OVER (ORDER BY cnt DESC, category ASC) rn
+                FROM G
+                )
+                SELECT
+                category  AS label,
+                cnt       AS [count],
+                firstAsId
+                FROM R
+                WHERE rn &lt;= #{topN}
+                ORDER BY cnt DESC, label ASC
+            </when>
+
+            <otherwise>
+                SELECT CAST(N'Invalid dimension' AS NVARCHAR(32)) AS label, 0 AS [count]
+            </otherwise>
+        </choose>
+    </select>
+
+    <!--========================================================================
+    // 8) 필터 목록 — 농가
+    // ID   : selectFarmList
+    // Param: -
+    // 설명 : code=farmCode, name=farmName 목록
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectFarmList" resultType="DashCodeNameDto">
+        SELECT DISTINCT
+        H.FARM_CODE                     AS code,
+        ISNULL(F.FARM_NAME,N'(미지정)') AS name
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM F ON F.FARM_CODE = H.FARM_CODE
+        WHERE H.USE_FLAG='1'
+        ORDER BY name ASC
+    </select>
+
+    <!--========================================================================
+    // 9) 필터 목록 — 장비
+    // ID   : selectEquipmentList
+    // Param: -
+    // 설명 : code=tableName, name=tableName 목록
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectEquipmentList" resultType="DashCodeNameDto">
+        SELECT DISTINCT
+        E.TABLE_NAME AS code,
+        E.TABLE_NAME AS name
+        FROM wjlee.dbo.SF_TBL_AS_EQUIP E
+        JOIN wjlee.dbo.SF_TBL_AS_HEADER H ON H.AS_ID = E.AS_ID
+        WHERE E.USE_FLAG='1' AND H.USE_FLAG='1'
+        ORDER BY name ASC
+    </select>
+
+    <!--========================================================================
+    // 10) 의존형 — 농가→장비
+    // ID   : selectEquipmentListByFarm
+    // Param: farmCode (required)
+    // 설명 : 특정 농가에 실제 존재하는 장비 목록
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectEquipmentListByFarm" resultType="DashCodeNameDto">
+        SELECT DISTINCT E.TABLE_NAME AS code, E.TABLE_NAME AS name
+        FROM wjlee.dbo.SF_TBL_AS_EQUIP E
+        JOIN wjlee.dbo.SF_TBL_AS_HEADER H ON H.AS_ID = E.AS_ID AND H.USE_FLAG='1'
+        WHERE E.USE_FLAG='1' AND H.FARM_CODE = #{farmCode}
+        ORDER BY name ASC
+    </select>
+
+    <!--========================================================================
+    // 11) 의존형 — 장비→농가
+    // ID   : selectFarmListByEquipment
+    // Param: tableName (required)
+    // 설명 : 특정 장비를 보유한 농가 목록
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectFarmListByEquipment" resultType="DashCodeNameDto">
+        SELECT DISTINCT H.FARM_CODE AS code, ISNULL(F.FARM_NAME,N'(미지정)') AS name
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        JOIN wjlee.dbo.SF_TBL_AS_EQUIP  E ON E.AS_ID = H.AS_ID AND E.USE_FLAG='1'
+        LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM F ON F.FARM_CODE = H.FARM_CODE
+        WHERE H.USE_FLAG='1' AND E.TABLE_NAME = #{tableName}
+        ORDER BY name ASC
+    </select>
+
+    <!--========================================================================
+    // 12) 선택 종합 — 농가 기준 장비 집계 (REG_DATE 기준)
+    // ID   : selectEquipmentByFarm
+    // Param: period (required), farmCode (required)
+    // 설명 : 특정 농가에 등록된 장비별 집계
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectEquipmentByFarm" resultType="DashAggregateItemDto">
+        WITH G AS (
+        SELECT
+        E.TABLE_NAME               AS tableName,
+        COUNT(DISTINCT H.AS_ID)    AS cnt,
+        MIN(H.AS_ID)               AS minAsId
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        JOIN wjlee.dbo.SF_TBL_AS_EQUIP  E
+        ON E.AS_ID = H.AS_ID AND E.USE_FLAG='1'
+        WHERE H.USE_FLAG='1'
+        AND H.FARM_CODE = #{farmCode}
+        <include refid="__period_filter_regdate"/>
+        GROUP BY E.TABLE_NAME
+        )
+        SELECT
+        tableName AS label,
+        cnt       AS [count],
+        tableName,
+        CASE WHEN cnt=1 THEN minAsId END AS firstAsId
+        FROM G
+        ORDER BY [count] DESC, label ASC
+    </select>
+
+    <!--========================================================================
+    // 13) 선택 종합 — 농가 기준 카테고리 집계 (REG_DATE 기준)
+    // ID   : selectCategoryByFarm
+    // Param: period (required), farmCode (required)
+    // 설명 : 특정 농가에 대한 카테고리별 집계
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectCategoryByFarm" resultType="DashAggregateItemDto">
+        WITH G AS (
+        SELECT
+        ISNULL(H.AS_TYPE,N'(미지정)') AS category,
+        COUNT(DISTINCT H.AS_ID)       AS cnt,
+        MIN(H.AS_ID)                  AS minAsId
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        WHERE H.USE_FLAG='1'
+        AND H.FARM_CODE = #{farmCode}
+        <include refid="__period_filter_regdate"/>
+        GROUP BY H.AS_TYPE
+        )
+        SELECT
+        category AS label,
+        cnt      AS [count],
+        CASE WHEN cnt=1 THEN minAsId END AS firstAsId
+        FROM G
+        ORDER BY [count] DESC, label ASC
+    </select>
+
+    <!--========================================================================
+    // 14) 선택 종합 — 장비 기준 농가 집계 (REG_DATE 기준)
+    // ID   : selectFarmByEquipment
+    // Param: period (required), tableName (required)
+    // 설명 : 특정 장비를 보유한 농가별 집계
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectFarmByEquipment" resultType="DashAggregateItemDto">
+        WITH G AS (
+        SELECT
+        H.FARM_CODE                     AS farmCode,
+        ISNULL(F.FARM_NAME,N'(미지정)') AS farmName,
+        COUNT(DISTINCT H.AS_ID)         AS cnt,
+        MIN(H.AS_ID)                    AS minAsId
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        JOIN wjlee.dbo.SF_TBL_AS_EQUIP  E
+        ON E.AS_ID = H.AS_ID AND E.USE_FLAG='1'
+        LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM F
+        ON F.FARM_CODE = H.FARM_CODE
+        WHERE H.USE_FLAG='1'
+        AND E.TABLE_NAME = #{tableName}
+        <include refid="__period_filter_regdate"/>
+        GROUP BY H.FARM_CODE, F.FARM_NAME
+        )
+        SELECT
+        farmName AS label,
+        cnt      AS [count],
+        farmCode, farmName,
+        CASE WHEN cnt=1 THEN minAsId END AS firstAsId
+        FROM G
+        ORDER BY cnt DESC, label ASC
+    </select>
+
+    <!--========================================================================
+    // 15) 선택 종합 — 장비 기준 카테고리 집계 (REG_DATE 기준)
+    // ID   : selectCategoryByEquipment
+    // Param: period (required), tableName (required)
+    // 설명 : 특정 장비에 대한 카테고리별 집계
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectCategoryByEquipment" resultType="DashAggregateItemDto">
+        WITH G AS (
+        SELECT
+        ISNULL(H.AS_TYPE,N'(미지정)') AS category,
+        COUNT(DISTINCT H.AS_ID)       AS cnt,
+        MIN(H.AS_ID)                  AS minAsId
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        JOIN wjlee.dbo.SF_TBL_AS_EQUIP  E
+        ON E.AS_ID = H.AS_ID AND E.USE_FLAG='1'
+        WHERE H.USE_FLAG='1'
+        AND E.TABLE_NAME = #{tableName}
+        <include refid="__period_filter_regdate"/>
+        GROUP BY H.AS_TYPE
+        )
+        SELECT
+        category AS label,
+        cnt      AS [count],
+        CASE WHEN cnt=1 THEN minAsId END AS firstAsId
+        FROM G
+        ORDER BY [count] DESC, label ASC
+    </select>
+
+    <!--========================================================================
+    // 16) 선택 종합 — 농장+장비 동시 (REG_DATE 기준)
+    // ID   : selectCategoryByFarmAndEquipment
+    // Param: period (required), farmCode (optional), tableName (optional)
+    // 설명 : 농가/장비 동시 필터링된 카테고리 집계
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectCategoryByFarmAndEquipment" resultType="DashAggregateItemDto">
+        WITH G AS (
+        SELECT
+        ISNULL(H.AS_TYPE,N'(미지정)') AS category,
+        COUNT(DISTINCT H.AS_ID)       AS cnt,
+        MIN(H.AS_ID)                  AS minAsId
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        WHERE H.USE_FLAG='1'
+        <if test="farmCode != null and farmCode != ''">
+            AND H.FARM_CODE = #{farmCode}
+        </if>
+        <if test="tableName != null and tableName != ''">
+            AND EXISTS (
+            SELECT 1
+            FROM wjlee.dbo.SF_TBL_AS_EQUIP E
+            WHERE E.AS_ID = H.AS_ID
+            AND E.USE_FLAG='1'
+            AND E.TABLE_NAME = #{tableName}
+            )
+        </if>
+        <include refid="__period_filter_regdate"/>
+        GROUP BY H.AS_TYPE
+        )
+        SELECT
+        category AS label,
+        cnt      AS [count],
+        CASE WHEN cnt=1 THEN minAsId END AS firstAsId
+        FROM G
+        ORDER BY [count] DESC, label ASC
+    </select>
+
+    <!--========================================================================
+    // 17) 타임라인 — REG_DATE 기준 + from/to 정확 경계
+    // ID   : selectTimeSeries
+    // Param:
+    //   - period    (required, string)
+    //   - bucket    (required, string)   // 'day' | 'month'
+    //   - farmCode  (optional, string)
+    //   - tableName (optional, string)
+    // 설명 : 기간/bucket 기준 시계열 포인트. from/to는 00:00~23:59로 가공 반환.
+    // 작성 : wjlee(25.09.01)
+    //========================================================================-->
+    <select id="selectTimeSeries" resultType="DashTimeSeriesPointDto">
+        WITH BASE AS (
+        SELECT
+        CASE
+        WHEN #{bucket} = 'day'
+        THEN <include refid="__date_expr_regdate"/>
+        ELSE DATEFROMPARTS(
+        YEAR(<include refid="__date_expr_regdate"/>),
+        MONTH(<include refid="__date_expr_regdate"/>),
+        1
+        )
+        END AS dkey,
+        H.AS_ID
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        <if test="tableName != null and tableName != ''">
+            JOIN wjlee.dbo.SF_TBL_AS_EQUIP E
+            ON E.AS_ID = H.AS_ID AND E.USE_FLAG='1'
+            AND E.TABLE_NAME = #{tableName}
+        </if>
+        WHERE H.USE_FLAG='1'
+        <if test="farmCode != null and farmCode != ''">
+            AND H.FARM_CODE = #{farmCode}
+        </if>
+        <include refid="__period_filter_regdate"/>
+        ),
+        AGG AS (
+        SELECT dkey,
+        COUNT(DISTINCT AS_ID) AS cnt,
+        MIN(AS_ID)            AS minAsId
+        FROM BASE
+        GROUP BY dkey
+        )
+        SELECT
+        CASE WHEN #{bucket} = 'day'
+        THEN CONVERT(varchar(10), dkey, 23)
+        ELSE CONVERT(varchar(7),  dkey, 23)
+        END AS bucket,
+        cnt AS [count],
+        CASE WHEN cnt=1 THEN minAsId END AS firstAsId,
+        CASE WHEN #{bucket} = 'day'
+        THEN CONCAT(CONVERT(varchar(10), dkey, 23), 'T00:00')
+        ELSE CONCAT(CONVERT(varchar(10), dkey, 23), 'T00:00')  -- dkey는 해당월 1일
+        END AS fromDate,
+        CASE WHEN #{bucket} = 'day'
+        THEN CONCAT(CONVERT(varchar(10), dkey, 23), 'T23:59')
+        ELSE CONCAT(CONVERT(varchar(10), EOMONTH(dkey), 23), 'T23:59')
+        END AS toDate
+        FROM AGG
+        ORDER BY dkey ASC
+    </select>
+
+    <!--//========================================================================
+    // 1. 지역별 AS 건수 조회
+    // 2. Param :
+    // 3. 설명 : 지역별 AS 건수 조회
+    // 4. 작성 : wjlee(25.09.02)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectSidoCounts" resultType="map" parameterType="map">
+        ;WITH AS_BASE AS (
+        SELECT H.AS_ID, H.FARM_CODE, F.REGION_NAME
+        FROM wjlee.dbo.SF_TBL_AS_HEADER AS H
+        INNER JOIN SMLF_MST.dbo.SF_TBL_FARM AS F
+        ON F.FARM_CODE = H.FARM_CODE
+        AND F.USE_FLAG = 1           -- 활성 농장만
+        <where>
+            AND H.USE_FLAG = 1       -- 활성 헤더만
+
+            <if test="startDate != null and startDate != ''">
+                <choose>
+                    <when test="dateBy == 'plan'"> AND H.PLAN_DATE &gt;= #{startDate} </when>
+                    <when test="dateBy == 'done'"> AND H.DONE_DATE &gt;= #{startDate} </when>
+                    <otherwise>                    AND H.REG_DATE  &gt;= #{startDate} </otherwise>
+                </choose>
+            </if>
+
+            <if test="endDate != null and endDate != ''">
+                <choose>
+                    <when test="dateBy == 'plan'"> AND H.PLAN_DATE &lt;  #{endDate} </when>
+                    <when test="dateBy == 'done'"> AND H.DONE_DATE &lt;  #{endDate} </when>
+                    <otherwise>                    AND H.REG_DATE  &lt;  #{endDate} </otherwise>
+                </choose>
+            </if>
+
+            <if test="status != null and status != ''">
+                AND H.STATUS = #{status}
+            </if>
+
+        </where>
+        ),
+        BASE AS (
+        /* REGION_NAME에서 시·도 후보 추출: '/' 앞부분, 없으면 첫 공백 앞 */
+        SELECT
+        LTRIM(RTRIM(
+        CASE
+        WHEN REGION_NAME IS NULL OR REGION_NAME = N'' THEN N''
+        WHEN CHARINDEX('/', REGION_NAME) &gt; 0
+        THEN LEFT(REGION_NAME, CHARINDEX('/', REGION_NAME) - 1)
+        ELSE LEFT(
+        REGION_NAME,
+        CASE WHEN CHARINDEX(' ', REGION_NAME) &gt; 0
+        THEN CHARINDEX(' ', REGION_NAME) - 1
+        ELSE LEN(REGION_NAME) END
+        )
+        END
+        )) AS SIDO_RAW
+        FROM AS_BASE
+        ),
+        STD AS (
+        /* 시·도 표준화(짧은 이름으로 정규화) */
+        SELECT
+        CASE
+        WHEN SIDO_RAW LIKE N'서울%' THEN N'서울'
+        WHEN SIDO_RAW LIKE N'부산%' THEN N'부산'
+        WHEN SIDO_RAW LIKE N'대구%' THEN N'대구'
+        WHEN SIDO_RAW LIKE N'인천%' THEN N'인천'
+        WHEN SIDO_RAW LIKE N'광주%' THEN N'광주'
+        WHEN SIDO_RAW LIKE N'대전%' THEN N'대전'
+        WHEN SIDO_RAW LIKE N'울산%' THEN N'울산'
+        WHEN SIDO_RAW LIKE N'세종%' THEN N'세종'
+        WHEN SIDO_RAW LIKE N'경기%' THEN N'경기'
+        WHEN SIDO_RAW LIKE N'강원%' THEN N'강원'
+        WHEN SIDO_RAW LIKE N'충북%' THEN N'충북'
+        WHEN SIDO_RAW LIKE N'충남%' THEN N'충남'
+        WHEN SIDO_RAW LIKE N'전북%' THEN N'전북'
+        WHEN SIDO_RAW LIKE N'전남%' THEN N'전남'
+        WHEN SIDO_RAW LIKE N'경북%' THEN N'경북'
+        WHEN SIDO_RAW LIKE N'경남%' THEN N'경남'
+        WHEN SIDO_RAW LIKE N'제주%' THEN N'제주'
+        ELSE SIDO_RAW
+        END AS SIDO_STD
+        FROM BASE
+        )
+        SELECT
+        SIDO_STD AS sido,
+        COUNT(*) AS as_cnt   -- ✅ AS 건수(헤더 건수) 기준
+        FROM STD
+        WHERE NULLIF(SIDO_STD, N'') IS NOT NULL
+        GROUP BY SIDO_STD
+        ORDER BY as_cnt DESC;
+    </select>
+
+</mapper>

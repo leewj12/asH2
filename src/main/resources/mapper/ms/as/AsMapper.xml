@@ -1,0 +1,1421 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.inpro.asBoard.as.mapper.AsMapper">
+
+    <!--//========================================================================
+    // 1. 농가 목록 조회
+    // 2. Param :
+    // 3. 설명 : 사용 농가 목록 조회
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectFarmList" resultType="map">
+        SELECT FARM_CODE, FARM_NAME
+        FROM SMLF_MST.dbo.SF_TBL_FARM
+        WHERE USE_FLAG = '1'
+        ORDER BY FARM_CODE
+    </select>
+
+    <!--//========================================================================
+    // 1. 농가 목록 검색
+    // 2. Param : keyword
+    // 3. 설명 : 사용 농가 목록을 이름/코드 부분일치로 검색
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="searchFarmList" resultType="map">
+        SELECT FARM_CODE, FARM_NAME
+        FROM SMLF_MST.dbo.SF_TBL_FARM
+        WHERE USE_FLAG = '1'
+        <if test="keyword != null and keyword != ''">
+            AND (
+            FARM_NAME LIKE '%' + #{keyword} + '%'
+            OR FARM_CODE LIKE '%' + #{keyword} + '%'
+            )
+        </if>
+        ORDER BY FARM_CODE
+    </select>
+
+    <!--//========================================================================
+    // 1. 농가 장비 테이블 조회
+    // 2. Param : farmCode
+    // 3. 설명 : 해당 농가에 데이터가 존재하는 장비 테이블명을 문자열로 반환
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectCategoryList" resultType="string">
+        SELECT 'SF_TBL_AIRCON'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_AIRCON WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_BRUSH'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_BRUSH WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_COOLER'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_COOLER WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_EQMNT'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_EQMNT WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_ENVIRON'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_ENVIRON WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_ENVIRON_L'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_ENVIRON_L WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_FEEDBIN'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_FEEDBIN WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_FEEDBIN_B'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_FEEDBIN_B WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_FEEDBIN_L'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_FEEDBIN_L WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_FOG'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_FOG WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_LIGHT'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_LIGHT WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_METER'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_METER WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_METER_S'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_METER_S WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_ROOF'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_ROOF WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_STER'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_STER WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_STER_Q'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_STER_Q WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_STER_V'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_STER_V WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_VEHICLE'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_VEHICLE WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_VEHICLE_A'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_VEHICLE_A WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_VENTIL'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_VENTIL WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_VENTIL_C'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_VENTIL_C WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_VENTIL_D'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_VENTIL_D WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_VENTIL_P'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_VENTIL_P WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_VENTIL_S'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_VENTIL_S WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_WIND'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_WIND WHERE FARM_CODE = #{farmCode})
+        UNION ALL
+        SELECT 'SF_TBL_WIND_D'
+        WHERE EXISTS (SELECT 1 FROM SMLF_MST.dbo.SF_TBL_WIND_D WHERE FARM_CODE = #{farmCode})
+        ORDER BY 1
+    </select>
+
+    <!--//========================================================================
+    // 1. 농가 등록 장비 목록 조회
+    // 2. Param : farmCode
+    // 3. 설명 : 해당 농가에 등록된 장비 목록 조회
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectEquipmentListByTable" resultType="map" parameterType="map">
+        <!-- 1) tableName 화이트리스트 매핑 -->
+        <choose>
+            <!-- ✅ EQMNT: SUB_SEQ = EQMNT_KIND -->
+            <when test="tableName == 'SF_TBL_EQMNT'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_EQMNT'"/>
+                <bind name="_sub"  value="'EQMNT_KIND'"/>
+                <bind name="_name" value="'EQMNT_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+
+            <!-- ✅ 일반: SUB_SEQ 그대로 -->
+            <when test="tableName == 'SF_TBL_AIRCON'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_AIRCON'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'AIRCON_NAME'"/>
+                <bind name="_date" value="'USE_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_BRUSH'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_BRUSH'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'BRUSH_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_COOLER'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_COOLER'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'COOLER_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_ENVIRON'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_ENVIRON'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'ENVIRON_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_ENVIRON_L'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_ENVIRON_L'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'DEVICE_NAME'"/>
+                <bind name="_date" value="'WRT_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_FEEDBIN'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_FEEDBIN'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'FEED_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_FEEDBIN_B'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_FEEDBIN_B'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'FEED_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_FEEDBIN_L'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_FEEDBIN_L'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'FEED_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_FOG'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_FOG'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'FOG_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_LIGHT'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_LIGHT'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'LIGHT_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_METER'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_METER'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'METER_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_METER_S'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_METER_S'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'METER_NAME'"/>
+                <bind name="_date" value="'USE_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_ROOF'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_ROOF'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'ROOF_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_STER'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_STER'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'STER_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_STER_Q'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_STER_Q'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'STER_NAME'"/>
+                <bind name="_date" value="'USE_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_STER_V'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_STER_V'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'STER_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_VEHICLE'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_VEHICLE'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'VEHICLE_NAME'"/>
+                <bind name="_date" value="'CAST(NULL AS DATETIME)'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_VEHICLE_A'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_VEHICLE_A'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'VEHICLE_NAME'"/>
+                <bind name="_date" value="'USE_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_VENTIL'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_VENTIL'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'VENTIL_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_VENTIL_C'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_VENTIL_C'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'VENTIL_NAME'"/>
+                <bind name="_date" value="'USE_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_VENTIL_D'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_VENTIL_D'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'VENTIL_NAME'"/>
+                <bind name="_date" value="'USE_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_VENTIL_P'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_VENTIL_P'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'VENTIL_NAME'"/>
+                <bind name="_date" value="'USE_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_VENTIL_S'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_VENTIL_S'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'VENTIL_NAME'"/>
+                <bind name="_date" value="'USE_DATETIME'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_WIND'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_WIND'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'WIND_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+            <when test="tableName == 'SF_TBL_WIND_D'">
+                <bind name="_tbl"  value="'SMLF_MST.dbo.SF_TBL_WIND_D'"/>
+                <bind name="_sub"  value="'SUB_SEQ'"/>
+                <bind name="_name" value="'WIND_NAME'"/>
+                <bind name="_date" value="'USE_DATE'"/>
+            </when>
+
+            <!-- 허용 외 테이블 -->
+            <otherwise>
+                <bind name="_invalid" value="1"/>
+            </otherwise>
+        </choose>
+
+        <!-- 2) 유효하면 실행, 아니면 빈 결과 -->
+        <choose>
+            <when test="_invalid == null">
+                SELECT
+                FARM_CODE,
+                EQMNT_SEQ,
+                ${_sub}  AS SUB_SEQ,
+                ${_name} AS EQMNT_NAME,
+                ${_date} AS USE_DATE
+                FROM ${_tbl}
+                WHERE FARM_CODE = #{farmCode}
+                ORDER BY ${_name}
+            </when>
+            <otherwise>
+                SELECT CAST(NULL AS NVARCHAR(1)) WHERE 1=0
+            </otherwise>
+        </choose>
+    </select>
+
+    <!--//========================================================================
+    // 1. AS 접수 등록
+    // 2. Param : dto(body, required, AsDto)
+    // 3. 설명 : AS 접수글 등록
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <insert id="insertAsHeader" useGeneratedKeys="true" keyProperty="asId">
+        INSERT INTO wjlee.dbo.SF_TBL_AS_HEADER (
+        FARM_CODE, REQ_DATE, REQ_USER, AS_TYPE, REQ_CONTENT,
+        AS_MANAGER, AS_RESULT, ETC, USE_FLAG, STATUS_FLAG, REG_DATE
+        ) VALUES (
+        #{farmCode}, #{reqDate, jdbcType=TIMESTAMP}, #{reqUser}, #{asType}, #{reqContent},
+        #{asManager}, #{asResult}, #{etc}, #{useFlag}, #{statusFlag}, GETDATE()
+        )
+    </insert>
+
+    <!--//========================================================================
+    // 1. AS 장비 등록
+    // 2. Param : equipList[] (optional, AsEquipDto)
+    // 3. 설명 : AS 장비 등록
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <insert id="insertAsEquip">
+        INSERT INTO wjlee.dbo.SF_TBL_AS_EQUIP (
+        AS_ID, TABLE_NAME, EQMNT_SEQ, SUB_SEQ, EQMNT_KIND,
+        EQMNT_NAME, USE_DATE, USE_FLAG
+        ) VALUES (
+        #{asId}, #{tableName}, #{eqmntSeq}, #{subSeq}, #{eqmntKind},
+        #{eqmntName}, #{useDate, jdbcType=TIMESTAMP}, #{useFlag}
+        )
+    </insert>
+
+    <!--//========================================================================
+    // 1. AS 접수 수정
+    // 2. Param : dto(body, required, AsDto)
+    // 3. 설명 : AS 접수글 수정
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <update id="updateAsHeader">
+        UPDATE wjlee.dbo.SF_TBL_AS_HEADER
+        SET
+        REQ_DATE = #{reqDate, jdbcType=TIMESTAMP},
+        UPD_DATE = GETDATE(),
+        REQ_USER = #{reqUser},
+        AS_TYPE = #{asType},
+        REQ_CONTENT = #{reqContent},
+        AS_MANAGER = #{asManager},
+        AS_RESULT = #{asResult},
+        ETC = #{etc},
+        STATUS_FLAG = #{statusFlag}
+        WHERE AS_ID = #{asId}
+    </update>
+
+    <!--//========================================================================
+    // 1. AS 접수 내역 상세 조회
+    // 2. Param : asId
+    // 3. 설명 : AS 접수 내역 상세 조회
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectAsDetail" parameterType="long" resultType="AsDto">
+        <![CDATA[
+        SELECT
+            H.AS_ID, H.FARM_CODE, H.REQ_DATE, H.REQ_USER, H.AS_TYPE, H.REQ_CONTENT,
+            H.AS_MANAGER, H.STATUS_FLAG, H.AS_RESULT, H.ETC, H.REG_DATE, H.UPD_DATE, H.USE_FLAG,
+            F.FARM_NAME, F.REGION_NAME, F.FARMER_NAME, F.PHONE_NUMB, F.FARM_ADDR1, F.FARM_ADDR2, F.PROJECT_NAME,
+            ISNULL(FUTURE.PLAN_DATE, ANYPLAN.PLAN_DATE) AS PLAN_DATE,
+
+            CASE
+              WHEN H.STATUS_FLAG = N'0' THEN N'보류'                      -- 보류 최우선
+              WHEN STAT.TOTAL = 0 THEN N'대기'                            -- 일정 없음
+              WHEN STAT.DONE_CNT = STAT.TOTAL AND STAT.TOTAL > 0 THEN N'완료'  -- 전부 완료
+
+              -- ↓ 진행중보다 우선: 미완료가 있고 마감이 지났으면 '지연', 오늘이면 '임박'
+              WHEN STAT.DONE_CNT < STAT.TOTAL
+                   AND CONVERT(date, STAT.FIRST_PENDING_PLAN) <  CAST(GETDATE() AS date)
+                THEN N'지연'
+              WHEN STAT.DONE_CNT < STAT.TOTAL
+                   AND CONVERT(date, STAT.FIRST_PENDING_PLAN) =  CAST(GETDATE() AS date)
+                THEN N'임박'
+
+              -- 완료, 대기 일정이 공존(임박, 지연된 일정 없음)
+              WHEN STAT.DONE_CNT > 0 AND STAT.DONE_CNT < STAT.TOTAL THEN N'진행중'
+
+              ELSE N'대기'
+            END AS STATUS_LABEL
+
+        FROM wjlee.dbo.SF_TBL_AS_HEADER H
+        LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM F ON H.FARM_CODE = F.FARM_CODE
+        OUTER APPLY (SELECT TOP 1 PLAN_DATE
+                     FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+                     WHERE AS_ID = H.AS_ID AND USE_FLAG=1 AND PLAN_DATE >= CAST(GETDATE() AS date)
+                     ORDER BY PLAN_DATE) FUTURE
+        OUTER APPLY (SELECT TOP 1 PLAN_DATE
+                     FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+                     WHERE AS_ID = H.AS_ID AND USE_FLAG=1
+                     ORDER BY PLAN_DATE) ANYPLAN
+        OUTER APPLY (SELECT COUNT(*) AS TOTAL,
+                            SUM(CASE WHEN COMPLETE_DATE <= GETDATE() THEN 1 ELSE 0 END) AS DONE_CNT,
+                            MIN(CONVERT(date, CASE WHEN COMPLETE_DATE IS NULL THEN PLAN_DATE END)) AS FIRST_PENDING_PLAN
+                     FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+                     WHERE AS_ID = H.AS_ID AND USE_FLAG=1) STAT
+        WHERE H.AS_ID = #{asId} AND H.USE_FLAG=1
+        ]]>
+    </select>
+
+    <resultMap id="AsEquipResultMap" type="AsEquipDto">
+        <result column="AS_ID" property="asId"/>
+        <result column="TABLE_NAME" property="tableName"/>
+        <result column="EQMNT_SEQ" property="eqmntSeq"/>
+        <result column="SUB_SEQ" property="subSeq"/>
+        <result column="EQMNT_KIND" property="eqmntKind"/>
+        <result column="EQMNT_NAME" property="eqmntName"/>
+        <result column="USE_DATE" property="useDate"/>
+        <result column="USE_FLAG" property="useFlag"/>
+    </resultMap>
+
+    <!--//========================================================================
+    // 1. AS 장비 목록 조회
+    // 2. Param : asId
+    // 3. 설명 : AS 장비 목록 조회
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectEquipListByAsId" resultMap="AsEquipResultMap">
+        SELECT E.AS_EQUIP_ID, E.AS_ID, E.TABLE_NAME, E.EQMNT_SEQ,
+        E.SUB_SEQ, E.EQMNT_KIND, E.EQMNT_NAME, E.USE_DATE, E.USE_FLAG
+        FROM wjlee.dbo.SF_TBL_AS_EQUIP E
+        WHERE AS_ID = #{asId} AND USE_FLAG = '1'
+    </select>
+
+    <!--//========================================================================
+    // 1. 접수 내역 삭제
+    // 2. Param : asId
+    // 3. 설명 : 접수 내역 논리 삭제
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <update id="deleteAsHeader">
+        UPDATE wjlee.dbo.SF_TBL_AS_HEADER SET USE_FLAG = '0' WHERE AS_ID = #{asId}
+    </update>
+
+    <!--//========================================================================
+    // 1. AS 장비 삭제
+    // 2. Param : asId
+    // 3. 설명 : AS 장비 논리 삭제
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <update id="deleteAsEquipByAsId">
+        UPDATE wjlee.dbo.SF_TBL_AS_EQUIP SET USE_FLAG = '0' WHERE AS_ID = #{asId}
+    </update>
+
+    <!--//========================================================================
+    // 1. AS 장비 삭제
+    // 2. Param : asId
+    // 3. 설명 : AS 장비 데이터 삭제(수정 시 활용)
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <delete id="deleteEquipHardByAsId">
+        DELETE FROM wjlee.dbo.SF_TBL_AS_EQUIP WHERE AS_ID = #{asId}
+    </delete>
+
+    <!--//========================================================================
+    // 1. AS 일정 삭제
+    // 2. Param : asId
+    // 3. 설명 : AS 일정 논리 삭제
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <update id="deleteScheduleByAsIdSoft">
+        UPDATE wjlee.dbo.SF_TBL_AS_SCHEDULE SET USE_FLAG = '0' WHERE AS_ID = #{asId}
+    </update>
+
+    <!--//========================================================================
+    // 1. AS 일정 삭제
+    // 2. Param : asId
+    // 3. 설명 : AS 일정 데이터 삭제(수정 시 활용)
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <delete id="deleteScheduleByAsId">
+        DELETE FROM wjlee.dbo.SF_TBL_AS_SCHEDULE WHERE AS_ID = #{asId}
+    </delete>
+
+    <!--//========================================================================
+    // 1. AS 일정 등록
+    // 2. Param : schedule(AsScheduleDto)
+    // 3. 설명 : AS 일정 등록
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <insert id="insertSchedule" parameterType="AsScheduleDto">
+        INSERT INTO wjlee.dbo.SF_TBL_AS_SCHEDULE (
+        AS_ID, PLAN_DATE, COMPLETE_DATE, AS_CONTENT, REG_DATE, UPD_DATE, USE_FLAG
+        ) VALUES (
+        #{asId}, #{planDate}, #{completeDate}, #{asContent}, GETDATE(), GETDATE(), #{useFlag}
+        )
+    </insert>
+
+    <!--//========================================================================
+    // 1. AS 일정 수정
+    // 2. Param : schedule(AsScheduleDto)
+    // 3. 설명 : AS 일정 수정
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <update id="updateSchedule" parameterType="AsScheduleDto">
+        UPDATE wjlee.dbo.SF_TBL_AS_SCHEDULE
+        SET PLAN_DATE = #{planDate}, COMPLETE_DATE = #{completeDate}, AS_CONTENT = #{asContent}, UPD_DATE = GETDATE()
+        WHERE SCHEDULE_ID = #{scheduleId}
+    </update>
+
+    <!--//========================================================================
+    // 1. 접수 일정 목록 조회
+    // 2. Param : asId
+    // 3. 설명 : 특정 접수 일정 목록 조회
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectScheduleListByAsId" resultType="AsScheduleDto">
+        SELECT SCHEDULE_ID, AS_ID, PLAN_DATE, COMPLETE_DATE, AS_CONTENT, REG_DATE, UPD_DATE, USE_FLAG
+        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+        WHERE AS_ID = #{asId} AND USE_FLAG = '1'
+        ORDER BY PLAN_DATE
+    </select>
+
+    <!--//========================================================================
+    // 1. 전체 일정 목록 조회
+    // 2. Param :
+    // 3. 설명 : 전체 일정 목록 조회
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectAllForSchedule" resultType="AsScheduleDto">
+        SELECT S.AS_ID, S.PLAN_DATE, S.COMPLETE_DATE, S.AS_CONTENT,
+        H.FARM_CODE, F.FARM_NAME, F.REGION_NAME
+        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE S
+        JOIN wjlee.dbo.SF_TBL_AS_HEADER H ON S.AS_ID = H.AS_ID AND H.USE_FLAG='1' AND H.STATUS_FLAG='1'
+        JOIN SMLF_MST.dbo.SF_TBL_FARM F ON H.FARM_CODE = F.FARM_CODE AND F.USE_FLAG='1'
+        WHERE S.USE_FLAG='1'
+    </select>
+
+    <!--//========================================================================
+    // 1. 첨부파일 등록
+    // 2. Param : file(AsFileDto)
+    // 3. 설명 : 첨부파일 등록
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <insert id="insertAsFile" parameterType="AsFileDto">
+        INSERT INTO wjlee.dbo.SF_TBL_AS_FILE (
+        AS_ID, ORIGINAL_NAME, UUID_NAME, FILE_PATH, FILE_SIZE, FILE_TYPE, USE_FLAG
+        ) VALUES (
+        #{asId}, #{originalName}, #{uuidName}, #{filePath}, #{fileSize}, #{fileType}, #{useFlag}
+        )
+    </insert>
+
+    <!--//========================================================================
+    // 1. 접수 글 첨부파일 목록 조회
+    // 2. Param : asId
+    // 3. 설명 : 접수 글 첨부파일 목록 조회
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectFileListByAsId" resultType="AsFileDto">
+        SELECT FILE_ID, AS_ID, ORIGINAL_NAME, UUID_NAME, FILE_PATH, FILE_SIZE, FILE_TYPE, REG_DATE, USE_FLAG
+        FROM wjlee.dbo.SF_TBL_AS_FILE
+        WHERE AS_ID = #{asId} AND USE_FLAG='1'
+        ORDER BY FILE_ID
+    </select>
+
+    <!--//========================================================================
+    // 1. fileId로로 파일 목록 조회
+    // 2. Param : fileIds
+    // 3. 설명 : fileId로 UUID, 경로 검증 후 목록 생성
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectFilesByIds" resultType="AsFileDto">
+        SELECT FILE_ID, FILE_PATH, UUID_NAME
+        FROM wjlee.dbo.SF_TBL_AS_FILE
+        WHERE FILE_ID IN
+        <foreach item="id" collection="fileIds" open="(" separator="," close=")">#{id}</foreach>
+    </select>
+
+    <!--//========================================================================
+    // 1. 첨부파일 삭제
+    // 2. Param : asId
+    // 3. 설명 : 첨부파일 논리 삭제
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <update id="deleteAsFilesByAsId">
+        UPDATE wjlee.dbo.SF_TBL_AS_FILE
+        SET USE_FLAG='0'
+        WHERE AS_ID = #{asId}
+    </update>
+
+    <!--//========================================================================
+    // 1. 첨부파일 삭제
+    // 2. Param : fileIds
+    // 3. 설명 : 첨부파일 삭제(수정 시 활용)
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <delete id="deleteFilesByIdsHard">
+        DELETE FROM wjlee.dbo.SF_TBL_AS_FILE
+        WHERE FILE_ID IN
+        <foreach item="id" collection="fileIds" open="(" separator="," close=")">#{id}</foreach>
+    </delete>
+
+    <!--//========================================================================
+    // 1. 날짜 컬럼 선택자 (목록 공용)
+    // 2. ID    : __date_expr_for_filter
+    // 3. Param : dateBy ('plan' | 'reg')
+    // 4. 설명  : dateBy 값에 따라 A.PLAN_DATE 또는 A.REG_DATE를 반환하는 표현식
+    //           (외부 SELECT에서 테이블 별칭 A를 사용해야 함)
+    // 5. 주의  : GETDATE() 사용 시 서버 타임존 기준. 타임존 보정 필요하면 상위에서 처리.
+    // 6. 작성  : wjlee(25.09.01)
+    // 7. 수정  :
+    //========================================================================-->
+    <sql id="__date_expr_for_filter">
+        <choose>
+            <when test="dateBy == 'reg'"> A.REG_DATE </when>
+            <otherwise>                   A.PLAN_DATE </otherwise>
+        </choose>
+    </sql>
+
+    <!--//========================================================================
+    // 1. 기간 프리셋 필터(오늘/이번주/이번달)
+    // 2. ID    : __period_filter_fixed
+    // 3. Param : period ('today' | '1w' | '1m'), dateBy (내부적으로 __date_expr_for_filter 사용)
+    // 4. 설명  : dateBy 기준 컬럼에 대해 고정 경계 기간 조건을 추가
+    // 5. 주의  : '1w'는 @@DATEFIRST 영향을 받음(주 시작 요일). 일관성 요구 시 서버 설정 고정.
+    // 6. 작성  : wjlee(25.09.01)
+    // 7. 수정  :
+    //========================================================================-->
+    <sql id="__period_filter_fixed">
+        <if test="period != null and period != ''">
+            <choose>
+                <!-- 오늘 00:00 ~ 내일 00:00 -->
+                <when test="period == 'today'">
+                    <![CDATA[
+                    AND
+                    ]]><include refid="__date_expr_for_filter"/><![CDATA[
+                     >= DATEADD(day, DATEDIFF(day, 0, GETDATE()), 0)
+                    AND
+                    ]]><include refid="__date_expr_for_filter"/><![CDATA[
+                     <  DATEADD(day, DATEDIFF(day, 0, GETDATE()) + 1, 0)
+                    ]]>
+                </when>
+
+                <!-- 이번주(월요일 00:00 ~ 다음주 월요일 00:00) -->
+                <when test="period == '1w'">
+                    <![CDATA[
+                    AND
+                    ]]><include refid="__date_expr_for_filter"/><![CDATA[
+                     >= DATEADD(day,
+                           -((DATEPART(weekday, CAST(GETDATE() AS date)) + @@DATEFIRST - 2) % 7),
+                           CAST(GETDATE() AS date))
+                    AND
+                    ]]><include refid="__date_expr_for_filter"/><![CDATA[
+                     <  DATEADD(day,
+                           7 - ((DATEPART(weekday, CAST(GETDATE() AS date)) + @@DATEFIRST - 2) % 7),
+                           CAST(GETDATE() AS date))
+                    ]]>
+                </when>
+
+                <!-- 이번달(1일 00:00 ~ 다음달 1일 00:00) -->
+                <when test="period == '1m'">
+                    <![CDATA[
+                    AND
+                    ]]><include refid="__date_expr_for_filter"/><![CDATA[
+                     >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                    AND
+                    ]]><include refid="__date_expr_for_filter"/><![CDATA[
+                     <  DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+                    ]]>
+                </when>
+            </choose>
+        </if>
+    </sql>
+
+    <!--//========================================================================
+    // 1. 사용자 입력 기간 필터(start/end)
+    // 2. ID    : __start_end_filter
+    // 3. Param : startDate (optional), endDate (optional), dateBy
+    // 4. 설명  : dateBy 기준 컬럼에 대해 [startDate, endDate] (종료 포함) 범위를 추가
+    // 5. 작성  : wjlee(25.09.01)
+    // 6. 수정  :
+    //========================================================================-->
+    <sql id="__start_end_filter">
+        <if test="startDate != null">
+            AND <include refid="__date_expr_for_filter"/> <![CDATA[ >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            AND <include refid="__date_expr_for_filter"/> <![CDATA[ <= #{endDate} ]]>
+        </if>
+    </sql>
+
+    <!--//========================================================================
+    // 1. AS 접수 목록 조회
+    // 2. Param(map):
+    //      - farms       : List<String>
+    //      - types       : List<String>           // "기타" 제외된 목록
+    //      - includeEtc  : boolean                // types에 "기타" 포함 여부
+    //      - statuses    : List<String>
+    //      - includeHold : boolean                // "보류" 포함 여부(상태 계산용)
+    //      - tables      : List<String>
+    //      - equipName   : String
+    //      - period      : String (today|1w|1m)
+    //      - q           : String                 // 자유검색어
+    //      - dateBy      : 'plan' | 'reg'         // PLAN_DATE or REG_DATE 기준
+    //      - startDate   : LocalDateTime
+    //      - endDate     : LocalDateTime
+    //      - size        : int
+    //      - offset      : int
+    //      - sortField   : String (화이트리스트: asId|planDate|regDate)
+    //      - sortDir     : 'asc' | 'desc'
+    // 3. 설명 : AS 접수 목록 조회(검색, 기간, 장비, 농장 필터 적용)
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectAsListFiltered" parameterType="map" resultType="AsDto">
+        <![CDATA[
+        SELECT *
+        FROM (
+          SELECT
+            H.AS_ID,
+            H.FARM_CODE,
+            F.FARM_NAME,
+            F.REGION_NAME,
+            F.FARMER_NAME,
+            F.PHONE_NUMB,
+            F.FARM_ADDR1,
+            F.FARM_ADDR2,
+            F.PROJECT_NAME,
+            H.REQ_DATE,
+            H.REQ_USER,
+            H.AS_TYPE,
+            H.AS_MANAGER,
+            H.REQ_CONTENT,
+            H.AS_RESULT,
+            H.ETC,
+            H.REG_DATE,
+            H.UPD_DATE,
+            H.USE_FLAG,
+            H.STATUS_FLAG,
+            ISNULL(FUTURE_SCH.PLAN_DATE, ANY_SCH.PLAN_DATE) AS PLAN_DATE,
+
+            CASE
+              WHEN H.STATUS_FLAG = N'0' THEN N'보류'                      -- 강제 보류 최우선
+              WHEN STAT.TOTAL = 0 THEN N'대기'                            -- 일정 자체가 없음
+              WHEN STAT.DONE_CNT = STAT.TOTAL AND STAT.TOTAL > 0 THEN N'완료'  -- 전부 완료
+
+              -- ↓ 진행중보다 우선: 미완료가 있고 마감이 지났으면 '지연', 오늘이면 '임박'
+              WHEN STAT.DONE_CNT < STAT.TOTAL
+                   AND CONVERT(date, STAT.FIRST_PENDING_PLAN) <  CAST(GETDATE() AS date)
+                THEN N'지연'
+              WHEN STAT.DONE_CNT < STAT.TOTAL
+                   AND CONVERT(date, STAT.FIRST_PENDING_PLAN) =  CAST(GETDATE() AS date)
+                THEN N'임박'
+
+              -- 완료, 대기 일정이 공존(임박, 지연된 일정 없음)
+              WHEN STAT.DONE_CNT > 0 AND STAT.DONE_CNT < STAT.TOTAL THEN N'진행중'
+
+              ELSE N'대기'
+            END AS STATUS_LABEL
+
+          FROM  wjlee.dbo.SF_TBL_AS_HEADER H
+          LEFT  JOIN SMLF_MST.dbo.SF_TBL_FARM  F ON H.FARM_CODE = F.FARM_CODE
+
+          OUTER APPLY (
+            SELECT TOP 1 PLAN_DATE
+            FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+            WHERE AS_ID=H.AS_ID AND USE_FLAG=1 AND PLAN_DATE >= CAST(GETDATE() AS DATE)
+            ORDER BY PLAN_DATE ASC
+          ) FUTURE_SCH
+
+          OUTER APPLY (
+            SELECT TOP 1 PLAN_DATE
+            FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+            WHERE AS_ID=H.AS_ID AND USE_FLAG=1
+            ORDER BY PLAN_DATE ASC
+          ) ANY_SCH
+
+          OUTER APPLY (
+            SELECT
+              COUNT(*) AS TOTAL,
+              SUM(CASE WHEN COMPLETE_DATE <= GETDATE() THEN 1 ELSE 0 END) AS DONE_CNT,
+              MIN(CONVERT(date, CASE WHEN COMPLETE_DATE IS NULL THEN PLAN_DATE END)) AS FIRST_PENDING_PLAN
+            FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+            WHERE AS_ID=H.AS_ID AND USE_FLAG=1
+          ) STAT
+
+          WHERE H.USE_FLAG = N'1'
+        ]]>
+
+        <!-- 기본: 보류 제외 (includeHold=true면 제외 안함) -->
+        <if test="includeHold != true">
+            <![CDATA[ AND H.STATUS_FLAG <> N'0' ]]>
+        </if>
+
+        <!-- 자유검색 q -->
+        <if test="q != null and q != ''">
+            AND (
+            F.FARM_NAME    LIKE CONCAT('%', #{q}, '%')
+            OR F.FARM_CODE LIKE CONCAT('%', #{q}, '%')
+            OR F.PROJECT_NAME LIKE CONCAT('%', #{q}, '%')
+            OR F.REGION_NAME  LIKE CONCAT('%', #{q}, '%')
+            OR H.AS_TYPE      LIKE CONCAT('%', #{q}, '%')
+            OR H.AS_MANAGER   LIKE CONCAT('%', #{q}, '%')
+            OR H.REQ_USER     LIKE CONCAT('%', #{q}, '%')
+            OR H.REQ_CONTENT  LIKE CONCAT('%', #{q}, '%')
+            )
+        </if>
+
+        <![CDATA[
+        ) A
+        ]]>
+
+        <where>
+            <!-- ✅ 기간 필터: dateBy(plan|reg) 기준으로 고정경계/범위 적용 -->
+            <include refid="__period_filter_fixed"/>
+            <include refid="__start_end_filter"/>
+
+            <!-- ✅ 농장 다중: 코드=정합 OR 이름 LIKE -->
+            <if test="farms != null and farms.size > 0">
+                AND (
+                <foreach item="fc" collection="farms" separator=" OR ">
+                    (A.FARM_CODE = #{fc} OR A.FARM_NAME LIKE CONCAT('%', #{fc}, '%'))
+                </foreach>
+                )
+            </if>
+
+            <!-- 유형 + '기타' 동시 지원 -->
+            <if test="(types != null and types.size > 0) or includeEtc">
+                AND (
+                <if test="types != null and types.size > 0">
+                    A.AS_TYPE IN
+                    <foreach item="t" collection="types" open="(" close=")" separator=",">#{t}</foreach>
+                </if>
+                <if test="includeEtc">
+                    <if test="types != null and types.size > 0"> OR </if>
+                    ( A.AS_TYPE IS NULL
+                    OR LTRIM(RTRIM(A.AS_TYPE)) = N''
+                    OR A.AS_TYPE NOT IN (N'장비', N'네트워크', N'모듈') )
+                </if>
+                )
+            </if>
+
+            <!-- 진행도 다중 -->
+            <if test="statuses != null and statuses.size > 0">
+                AND A.STATUS_LABEL IN
+                <foreach item="s" collection="statuses" open="(" close=")" separator=",">#{s}</foreach>
+            </if>
+
+            <!-- 레거시 단건 상태 -->
+            <if test="(statuses == null or statuses.size == 0)
+                and asStatus != null and asStatus != '' and asStatus != '전체'">
+                AND A.STATUS_LABEL = #{asStatus}
+            </if>
+
+            <!-- 장비 EXISTS -->
+            <if test="(tables != null and tables.size > 0) or (equipName != null and equipName != '')">
+                AND EXISTS (
+                SELECT 1
+                FROM wjlee.dbo.SF_TBL_AS_EQUIP E
+                WHERE E.AS_ID = A.AS_ID
+                AND E.USE_FLAG = 1
+                <if test="tables != null and tables.size > 0">
+                    AND E.TABLE_NAME IN
+                    <foreach item="tn" collection="tables" open="(" close=")" separator=",">#{tn}</foreach>
+                </if>
+                <if test="equipName != null and equipName != ''">
+                    AND E.EQMNT_NAME LIKE CONCAT('%', #{equipName}, '%')
+                </if>
+                )
+            </if>
+        </where>
+
+        <!-- 정렬/페이징 -->
+        <choose>
+            <when test="sortField != null and sortDir != null
+      and (sortField == 'asId' or sortField == 'farmName' or sortField == 'farmCode'
+        or sortField == 'regionName' or sortField == 'asType' or sortField == 'projectName'
+        or sortField == 'reqDate' or sortField == 'planDate')
+      and (sortDir == 'asc' or sortDir == 'desc')">
+                ORDER BY
+                <choose>
+                    <when test="sortField == 'asId'">        A.AS_ID</when>
+                    <when test="sortField == 'farmName'">    A.FARM_NAME</when>
+                    <when test="sortField == 'farmCode'">    A.FARM_CODE</when>
+                    <when test="sortField == 'regionName'">  A.REGION_NAME</when>
+                    <when test="sortField == 'asType'">      A.AS_TYPE</when>
+                    <when test="sortField == 'projectName'"> A.PROJECT_NAME</when>
+                    <when test="sortField == 'reqDate'">     A.REQ_DATE</when>
+                    <when test="sortField == 'planDate'">    A.PLAN_DATE</when>
+                </choose>
+                <choose>
+                    <when test="sortDir == 'desc'">DESC</when>
+                    <otherwise>ASC</otherwise>
+                </choose>
+            </when>
+            <otherwise> ORDER BY A.AS_ID DESC </otherwise>
+        </choose>
+
+        OFFSET #{offset} ROWS
+        FETCH NEXT #{size} ROWS ONLY
+    </select>
+
+    <!--//========================================================================
+    // 1. AS 접수 목록 페이징 계산
+    // 2. Param(map):
+    //    //      - farms       : List<String>
+    //    //      - types       : List<String>           // "기타" 제외된 목록
+    //    //      - includeEtc  : boolean                // types에 "기타" 포함 여부
+    //    //      - statuses    : List<String>
+    //    //      - includeHold : boolean                // "보류" 포함 여부(상태 계산용)
+    //    //      - tables      : List<String>
+    //    //      - equipName   : String
+    //    //      - period      : String (today|1w|1m)
+    //    //      - q           : String                 // 자유검색어
+    //    //      - dateBy      : 'plan' | 'reg'         // PLAN_DATE or REG_DATE 기준
+    //    //      - startDate   : LocalDateTime
+    //    //      - endDate     : LocalDateTime
+    //    //      - size        : int
+    //    //      - offset      : int
+    //    //      - sortField   : String (화이트리스트: asId|planDate|regDate)
+    //    //      - sortDir     : 'asc' | 'desc'
+    // 3. 설명 : AS 접수 목록 페이징 계산
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="countAsListFiltered" parameterType="map" resultType="int">
+        <![CDATA[
+        SELECT COUNT(1)
+        FROM (
+          SELECT
+            H.AS_ID,
+            H.FARM_CODE,
+            F.FARM_NAME,
+            H.AS_TYPE,
+            H.REG_DATE,
+            ISNULL(FUTURE_SCH.PLAN_DATE, ANY_SCH.PLAN_DATE) AS PLAN_DATE,
+            CASE
+              WHEN H.STATUS_FLAG = N'0' THEN '보류'
+              WHEN STAT.TOTAL = 0 THEN '대기'
+              WHEN STAT.DONE_CNT = STAT.TOTAL THEN '완료'
+              WHEN STAT.FIRST_PENDING_PLAN <  CAST(GETDATE() AS DATE) THEN '지연'
+              WHEN STAT.FIRST_PENDING_PLAN = CAST(GETDATE() AS DATE)  THEN '임박'
+              WHEN STAT.DONE_CNT > 0 THEN '진행중'
+              ELSE '대기'
+            END AS STATUS_LABEL
+          FROM  wjlee.dbo.SF_TBL_AS_HEADER H
+          LEFT  JOIN SMLF_MST.dbo.SF_TBL_FARM  F ON H.FARM_CODE = F.FARM_CODE
+
+          OUTER APPLY ( SELECT TOP 1 PLAN_DATE
+                        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+                        WHERE AS_ID=H.AS_ID AND USE_FLAG=1 AND PLAN_DATE >= CAST(GETDATE() AS DATE)
+                        ORDER BY PLAN_DATE ASC ) FUTURE_SCH
+          OUTER APPLY ( SELECT TOP 1 PLAN_DATE
+                        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+                        WHERE AS_ID=H.AS_ID AND USE_FLAG=1
+                        ORDER BY PLAN_DATE ASC ) ANY_SCH
+          OUTER APPLY ( SELECT COUNT(*) AS TOTAL,
+                               SUM(CASE WHEN COMPLETE_DATE <= GETDATE() THEN 1 ELSE 0 END) AS DONE_CNT,
+                               MIN(CONVERT(date, CASE WHEN COMPLETE_DATE IS NULL THEN PLAN_DATE END)) AS FIRST_PENDING_PLAN
+                        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE
+                        WHERE AS_ID=H.AS_ID AND USE_FLAG=1 ) STAT
+
+          WHERE H.USE_FLAG = N'1'
+        ]]>
+
+        <if test="includeHold != true">
+            <![CDATA[ AND H.STATUS_FLAG <> N'0' ]]>
+        </if>
+
+        <if test="q != null and q != ''">
+            AND (
+            F.FARM_NAME    LIKE CONCAT('%', #{q}, '%')
+            OR F.FARM_CODE LIKE CONCAT('%', #{q}, '%')
+            OR F.PROJECT_NAME LIKE CONCAT('%', #{q}, '%')
+            OR F.REGION_NAME  LIKE CONCAT('%', #{q}, '%')
+            OR H.AS_TYPE      LIKE CONCAT('%', #{q}, '%')
+            OR H.AS_MANAGER   LIKE CONCAT('%', #{q}, '%')
+            OR H.REQ_USER     LIKE CONCAT('%', #{q}, '%')
+            OR H.REQ_CONTENT  LIKE CONCAT('%', #{q}, '%')
+            )
+        </if>
+
+        <![CDATA[
+        ) A
+        ]]>
+
+        <where>
+            <!-- ✅ 동일한 기간 로직 -->
+            <include refid="__period_filter_fixed"/>
+            <include refid="__start_end_filter"/>
+
+            <!-- ✅ 농장 다중: 코드=정합 OR 이름 LIKE -->
+            <if test="farms != null and farms.size > 0">
+                AND (
+                <foreach item="fc" collection="farms" separator=" OR ">
+                    (A.FARM_CODE = #{fc} OR A.FARM_NAME LIKE CONCAT('%', #{fc}, '%'))
+                </foreach>
+                )
+            </if>
+
+            <if test="(types != null and types.size > 0) or includeEtc">
+                AND (
+                <if test="types != null and types.size > 0">
+                    A.AS_TYPE IN
+                    <foreach item="t" collection="types" open="(" close=")" separator=",">#{t}</foreach>
+                </if>
+                <if test="includeEtc">
+                    <if test="types != null and types.size > 0"> OR </if>
+                    ( A.AS_TYPE IS NULL
+                    OR LTRIM(RTRIM(A.AS_TYPE)) = N''
+                    OR A.AS_TYPE NOT IN (N'장비', N'네트워크', N'모듈') )
+                </if>
+                )
+            </if>
+
+            <if test="statuses != null and statuses.size > 0">
+                AND A.STATUS_LABEL IN
+                <foreach item="s" collection="statuses" open="(" close=")" separator=",">#{s}</foreach>
+            </if>
+
+            <if test="(statuses == null or statuses.size == 0)
+                and asStatus != null and asStatus != '' and asStatus != '전체'">
+                AND A.STATUS_LABEL = #{asStatus}
+            </if>
+
+            <if test="(tables != null and tables.size > 0) or (equipName != null and equipName != '')">
+                AND EXISTS (
+                SELECT 1
+                FROM wjlee.dbo.SF_TBL_AS_EQUIP E
+                WHERE E.AS_ID = A.AS_ID
+                AND E.USE_FLAG = 1
+                <if test="tables != null and tables.size > 0">
+                    AND E.TABLE_NAME IN
+                    <foreach item="tn" collection="tables" open="(" close=")" separator=",">#{tn}</foreach>
+                </if>
+                <if test="equipName != null and equipName != ''">
+                    AND E.EQMNT_NAME LIKE CONCAT('%', #{equipName}, '%')
+                </if>
+                )
+            </if>
+        </where>
+    </select>
+
+    <!--//========================================================================
+    // 1. AS 장비 테이블 목록 조회
+    // 2. Param:
+    // 3. 설명 : AS 장비 테이블 목록 조회
+    // 4. 작성 : wjlee(25.09.01)
+    // 5. 수정 :
+    //========================================================================-->
+    <select id="selectDistinctEquipTablesForFilter" resultType="string">
+        SELECT DISTINCT TABLE_NAME
+        FROM wjlee.dbo.SF_TBL_AS_EQUIP
+        WHERE USE_FLAG = 1
+        ORDER BY TABLE_NAME
+    </select>
+
+    <!--//========================================================================
+    // 1. 일정 화면용 날짜 컬럼 고정자
+    // 2. ID    : __date_expr_for_sched
+    // 3. Param : (none)
+    // 4. 설명  : 일정 화면은 예정일(S.PLAN_DATE) 고정 사용
+    // 5. 작성  : wjlee(25.09.01)
+    // 6. 수정  :
+    //========================================================================-->
+    <sql id="__date_expr_for_sched">
+        S.PLAN_DATE
+    </sql>
+
+    <!--//========================================================================
+    // 1. 일정 화면용 기간 필터(프리셋 + 사용자 범위)
+    // 2. ID    : __period_filter_sched
+    // 3. Param : params.period, params.startDate, params.endDate
+    // 4. 설명  : S.PLAN_DATE 기준으로 today/1w/1m 및 start/end 범위 조건을 추가
+    // 5. 주의  : 컨트롤러에서 @Param("params")로 감싼 맵을 전달한다는 전제(#{params.*})
+    // 6. 작성  : wjlee(25.09.01)
+    // 7. 수정  :
+    //========================================================================-->
+    <sql id="__period_filter_sched">
+        <if test="params.period != null and params.period != ''">
+            <choose>
+                <when test="params.period == 'today'">
+                    <![CDATA[
+                        AND
+                    ]]>
+                    <include refid="__date_expr_for_sched"/>
+                    <![CDATA[
+                        >= DATEADD(day, DATEDIFF(day,0,GETDATE()), 0)
+                        AND
+                    ]]>
+                    <include refid="__date_expr_for_sched"/>
+                    <![CDATA[
+                        <  DATEADD(day, DATEDIFF(day,0,GETDATE())+1, 0)
+                    ]]>
+                </when>
+                <when test="params.period == '1w'">
+                    <![CDATA[
+                        AND
+                    ]]>
+                    <include refid="__date_expr_for_sched"/>
+                    <![CDATA[
+                        >= DATEADD(day,
+                        -((DATEPART(weekday, CAST(GETDATE() AS date)) + @@DATEFIRST - 2) % 7),
+                        CAST(GETDATE() AS date))
+                        AND
+                    ]]>
+                    <include refid="__date_expr_for_sched"/>
+                    <![CDATA[
+                        <  DATEADD(day,
+                        7 - ((DATEPART(weekday, CAST(GETDATE() AS date)) + @@DATEFIRST - 2) % 7),
+                        CAST(GETDATE() AS date))
+                    ]]>
+                </when>
+                <when test="params.period == '1m'">
+                    <![CDATA[
+                        AND
+                    ]]>
+                    <include refid="__date_expr_for_sched"/>
+                    <![CDATA[
+                        >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
+                        AND
+                    ]]>
+                    <include refid="__date_expr_for_sched"/>
+                    <![CDATA[
+                        <  DATEADD(month, 1, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+                    ]]>
+                </when>
+            </choose>
+        </if>
+
+        <if test="params.startDate != null">
+            AND <include refid="__date_expr_for_sched"/> <![CDATA[ >= #{params.startDate} ]]>
+        </if>
+        <if test="params.endDate != null">
+            AND <include refid="__date_expr_for_sched"/> <![CDATA[ <= #{params.endDate} ]]>
+        </if>
+    </sql>
+
+    <!--//========================================================================
+    // 1. 일정 목록 공통 WHERE
+    // 2. ID    : _schedule_flat_where
+    // 3. Param : params.q, params.period, params.startDate, params.endDate,
+    //            params.farms, params.types, params.includeEtc,
+    //            params.tables, params.equipName, params.completion
+    // 4. 설명  : 보류 제외(현행), 자유검색, 기간, 농장/유형/장비 EXISTS 등 공통 필터
+    // 5. 주의  : 컨트롤러에서 CSV→List 정규화 완료. 접수 목록과 동일한 검색 컬럼 세트 유지.
+    // 6. 작성  : wjlee(25.09.01)
+    // 7. 수정  :
+    //========================================================================-->
+    <sql id="_schedule_flat_where">
+        WHERE S.USE_FLAG = N'1'
+        AND H.USE_FLAG = N'1'
+        AND H.STATUS_FLAG = N'1'     <!-- 보류 항상 제외(현행 유지) -->
+
+        <!-- q 자유검색 (접수 목록과 동일 컬럼 세트) -->
+        <if test="params.q != null and params.q != ''">
+            AND (
+            F.FARM_NAME      LIKE CONCAT('%', #{params.q}, '%')
+            OR F.FARM_CODE   LIKE CONCAT('%', #{params.q}, '%')
+            OR F.PROJECT_NAME LIKE CONCAT('%', #{params.q}, '%')
+            OR F.REGION_NAME  LIKE CONCAT('%', #{params.q}, '%')
+            OR H.AS_TYPE     LIKE CONCAT('%', #{params.q}, '%')
+            OR H.AS_MANAGER  LIKE CONCAT('%', #{params.q}, '%')
+            OR H.REQ_USER    LIKE CONCAT('%', #{params.q}, '%')
+            OR H.REQ_CONTENT LIKE CONCAT('%', #{params.q}, '%')
+            OR CAST(H.AS_ID AS VARCHAR) = #{params.q}
+            )
+        </if>
+
+        <!-- 기간: 예정일 기준 -->
+        <include refid="__period_filter_sched"/>
+
+        <!-- 완료여부 -->
+        <if test="params.completion != null and params.completion != '' and params.completion != '전체'">
+            <choose>
+                <when test="params.completion == '완료'">
+                    <![CDATA[
+                        AND S.COMPLETE_DATE IS NOT NULL
+                        AND CONVERT(date, S.COMPLETE_DATE) <= CAST(GETDATE() AS date)
+                    ]]>
+                </when>
+                <when test="params.completion == '미완료'">
+                    AND ( S.COMPLETE_DATE IS NULL
+                    OR CONVERT(date, S.COMPLETE_DATE) > CAST(GETDATE() AS date) )
+                </when>
+            </choose>
+        </if>
+
+        <!-- 농장 다중: 코드=정합 OR 이름 LIKE -->
+        <if test="params.farms != null and params.farms.size > 0">
+            AND (
+            <foreach item="fc" collection="params.farms" separator=" OR ">
+                (F.FARM_CODE = #{fc} OR F.FARM_NAME LIKE CONCAT('%', #{fc}, '%'))
+            </foreach>
+            )
+        </if>
+
+        <!-- 문제유형 + '기타' 동시 지원 -->
+        <if test="(params.types != null and params.types.size > 0) or params.includeEtc">
+            AND (
+            <if test="params.types != null and params.types.size > 0">
+                H.AS_TYPE IN
+                <foreach item="t" collection="params.types" open="(" close=")" separator=",">#{t}</foreach>
+            </if>
+            <if test="params.includeEtc">
+                <if test="params.types != null and params.types.size > 0"> OR </if>
+                ( H.AS_TYPE IS NULL
+                OR LTRIM(RTRIM(H.AS_TYPE)) = N''
+                OR H.AS_TYPE NOT IN (N'장비', N'네트워크', N'모듈') )
+            </if>
+            )
+        </if>
+
+        <!-- 장비 EXISTS (AS_ID 단위) -->
+        <if test="(params.tables != null and params.tables.size > 0) or (params.equipName != null and params.equipName != '')">
+            AND EXISTS (
+            SELECT 1
+            FROM wjlee.dbo.SF_TBL_AS_EQUIP E
+            WHERE E.AS_ID = H.AS_ID
+            AND E.USE_FLAG = 1
+            <if test="params.tables != null and params.tables.size > 0">
+                AND E.TABLE_NAME IN
+                <foreach item="tn" collection="params.tables" open="(" close=")" separator=",">#{tn}</foreach>
+            </if>
+            <if test="params.equipName != null and params.equipName != ''">
+                AND E.EQMNT_NAME LIKE CONCAT('%', #{params.equipName}, '%')
+            </if>
+            )
+        </if>
+    </sql>
+
+    <!--//========================================================================
+    // 1. 일정 목록 공통 ORDER BY
+    // 2. ID    : _schedule_flat_order
+    // 3. Param : params.sortField (화이트리스트), params.sortDir
+    // 4. 설명  : 허용된 정렬 필드/방향에 한해 동적 정렬. 미지정 시 PLAN_DATE ASC, AS_ID ASC.
+    // 5. 보안  : 화이트리스트 외 값은 무시하여 SQL 인젝션 방지.
+    // 6. 작성  : wjlee(25.09.01)
+    // 7. 수정  :
+    //========================================================================-->
+    <sql id="_schedule_flat_order">
+        <choose>
+            <when test="params.sortField != null and params.sortDir != null
+        and (params.sortField == 'asId' or params.sortField == 'farmName' or params.sortField == 'farmCode'
+             or params.sortField == 'regionName' or params.sortField == 'projectName' or params.sortField == 'asType'
+             or params.sortField == 'reqDate' or params.sortField == 'planDate' or params.sortField == 'completeDate')
+        and (params.sortDir == 'asc' or params.sortDir == 'desc')">
+                ORDER BY
+                <choose>
+                    <when test="params.sortField == 'asId'">         H.AS_ID</when>
+                    <when test="params.sortField == 'farmName'">     F.FARM_NAME</when>
+                    <when test="params.sortField == 'farmCode'">     F.FARM_CODE</when>
+                    <when test="params.sortField == 'regionName'">   F.REGION_NAME</when>
+                    <when test="params.sortField == 'projectName'">  F.PROJECT_NAME</when>
+                    <when test="params.sortField == 'asType'">       H.AS_TYPE</when>
+                    <when test="params.sortField == 'reqDate'">      H.REQ_DATE</when>
+                    <when test="params.sortField == 'planDate'">     S.PLAN_DATE</when>
+                    <when test="params.sortField == 'completeDate'"> S.COMPLETE_DATE</when>
+                </choose>
+                <choose>
+                    <when test="params.sortDir == 'desc'">DESC</when>
+                    <otherwise>ASC</otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                ORDER BY S.PLAN_DATE ASC, H.AS_ID ASC
+            </otherwise>
+        </choose>
+    </sql>
+
+    <!--//========================================================================
+    // 1. AS 일정 목록 조회(필터/정렬/페이징)
+    // 2. Param(map):
+    //      - q           : String (optional)
+    //      - farms       : List<String> (optional)
+    //      - types       : List<String> (optional)       // "기타" 제외된 목록
+    //      - includeEtc  : boolean (optional)            // "기타" 포함 여부
+    //      - tables      : List<String> (optional)
+    //      - equipName   : String (optional)
+    //      - completion  : String (optional)
+    //      - period      : String (optional)             // today|1w|1m
+    //      - startDate   : LocalDateTime (optional)
+    //      - endDate     : LocalDateTime (optional)
+    //      - sortField   : String (default=planDate)     // 화이트리스트만 허용
+    //      - sortDir     : String (default=asc)
+    //      - offset      : int (required)
+    //      - size        : int (required)
+    // 3. 설명 : 컨트롤러에서 CSV→List 정규화된 map을 그대로 사용.
+    // 5. 작성 : wjlee(25.09.01)
+    // 6. 수정 :
+    //========================================================================-->
+    <select id="selectScheduleRowListWithPaging" parameterType="map" resultType="AsScheduleRowDto">
+        SELECT
+        S.SCHEDULE_ID   AS scheduleId,
+        H.AS_ID         AS asId,
+        F.FARM_CODE     AS farmCode,
+        F.FARM_NAME     AS farmName,
+        F.REGION_NAME   AS regionName,
+        F.PROJECT_NAME  AS projectName,
+        H.AS_TYPE       AS asType,
+        H.REQ_DATE      AS reqDate,
+        S.PLAN_DATE     AS planDate,
+        S.COMPLETE_DATE AS completeDate,
+        CAST(S.USE_FLAG AS bit) AS useFlag
+        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE S
+        JOIN wjlee.dbo.SF_TBL_AS_HEADER   H ON S.AS_ID = H.AS_ID
+        LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM   F ON H.FARM_CODE = F.FARM_CODE
+        <include refid="_schedule_flat_where"/>
+        <include refid="_schedule_flat_order"/>
+        OFFSET #{params.offset} ROWS FETCH NEXT #{params.size} ROWS ONLY
+    </select>
+
+    <!--//========================================================================
+    // 1. AS 일정 목록 페이지 계산
+    // 2. Param(map):
+    //      - q           : String (optional)
+    //      - farms       : List<String> (optional)
+    //      - types       : List<String> (optional)       // "기타" 제외된 목록
+    //      - includeEtc  : boolean (optional)            // "기타" 포함 여부
+    //      - tables      : List<String> (optional)
+    //      - equipName   : String (optional)
+    //      - completion  : String (optional)
+    //      - period      : String (optional)             // today|1w|1m
+    //      - startDate   : LocalDateTime (optional)
+    //      - endDate     : LocalDateTime (optional)
+    //      - sortField   : String (default=planDate)     // 화이트리스트만 허용
+    //      - sortDir     : String (default=asc)
+    //      - offset      : int (required)
+    //      - size        : int (required)
+    // 3. 설명 : AS 일정 목록 페이지 계산
+    // 5. 작성 : wjlee(25.09.01)
+    // 6. 수정 :
+    //========================================================================-->
+    <select id="countScheduleRowList" parameterType="map" resultType="int">
+        SELECT COUNT(1)
+        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE S
+        JOIN wjlee.dbo.SF_TBL_AS_HEADER   H ON S.AS_ID = H.AS_ID
+        LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM   F ON H.FARM_CODE = F.FARM_CODE
+        <include refid="_schedule_flat_where"/>
+    </select>
+
+    <!--//========================================================================
+    // 1. 엑셀 출력 목록 조회
+    // 2. Param(map):
+    //      - q           : String (optional)
+    //      - farms       : List<String> (optional)
+    //      - types       : List<String> (optional)       // "기타" 제외된 목록
+    //      - includeEtc  : boolean (optional)            // "기타" 포함 여부
+    //      - tables      : List<String> (optional)
+    //      - equipName   : String (optional)
+    //      - completion  : String (optional)
+    //      - period      : String (optional)             // today|1w|1m
+    //      - startDate   : LocalDateTime (optional)
+    //      - endDate     : LocalDateTime (optional)
+    //      - sortField   : String (default=planDate)     // 화이트리스트만 허용
+    //      - sortDir     : String (default=asc)
+    //      - offset      : int (required)
+    //      - size        : int (required)
+    // 3. 설명 : 엑셀 출력 목록 조회
+    // 5. 작성 : wjlee(25.09.01)
+    // 6. 수정 :
+    //========================================================================-->
+    <select id="selectScheduleRowListForExport" parameterType="map" resultType="AsScheduleRowDto">
+        SELECT
+        S.SCHEDULE_ID   AS scheduleId,
+        H.AS_ID         AS asId,
+        F.FARM_CODE     AS farmCode,
+        F.FARM_NAME     AS farmName,
+        F.REGION_NAME   AS regionName,
+        F.PROJECT_NAME  AS projectName,
+        H.AS_TYPE       AS asType,
+        H.REQ_DATE      AS reqDate,
+        S.PLAN_DATE     AS planDate,
+        S.COMPLETE_DATE AS completeDate,
+        CAST(S.USE_FLAG AS bit) AS useFlag
+        FROM wjlee.dbo.SF_TBL_AS_SCHEDULE S
+        JOIN wjlee.dbo.SF_TBL_AS_HEADER   H ON S.AS_ID = H.AS_ID
+        LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM   F ON H.FARM_CODE = F.FARM_CODE
+        <include refid="_schedule_flat_where"/>
+        <include refid="_schedule_flat_order"/>
+    </select>
+
+</mapper>

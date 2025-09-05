@@ -1,10 +1,10 @@
 server:
   address: 0.0.0.0    # 모든 NIC 바인딩
-  port: 8080          # 서비스 포트
+  port: ${PORT:8080}          # 서비스 포트
 
 spring:
   profiles:
-    active: dev     # 기본 활성 프로필
+    active: h2     # 기본 활성 프로필
   config:
     import: "optional:classpath:/application-secrets.yml"   # 비밀값 분리
   servlet:
@@ -13,9 +13,9 @@ spring:
       max-request-size: 50MB  # 요청 전체 최대 크기
 
   # ① 기본(프라이머리) DataSource: MSSQL — 계정은 secrets로 분리
-  datasource:
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-    url: jdbc:sqlserver://10.131.121.110:1433;databaseName=SMLF_MST;encrypt=true;trustServerCertificate=true
+#  datasource:
+#    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+#    url: jdbc:sqlserver://10.131.121.110:1433;databaseName=SMLF_MST;encrypt=true;trustServerCertificate=true
 
 asboard:
   file:
@@ -23,7 +23,7 @@ asboard:
     upload-root: ${ASBOARD_FILE_UPLOAD_ROOT:}   # 환경변수로 덮어쓰기(없으면 각 프로필 yml 값 사용)
 
 mybatis:
-  mapper-locations: classpath:/mapper/**/*.xml  # 매퍼 XML 위치
+  mapper-locations: classpath:/mapper/h2/**/*.xml  # 매퍼 XML 위치
   type-aliases-package: com.inpro.asBoard       # 타입 alias 패키지
   configuration:
     map-underscore-to-camel-case: true          # 컬럼 스네이크 → 카멜 매핑
