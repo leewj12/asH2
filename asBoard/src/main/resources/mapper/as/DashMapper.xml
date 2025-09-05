@@ -110,15 +110,21 @@
     // 설명 : AS별 가장 가까운 PLAN_DATE 1건 기준으로 임박 목록 TopN
     // 작성 : wjlee(25.09.01)
     //========================================================================-->
-    <select id="selectUpcomingList" resultType="DashUpcomingDto">
+    <select id="selectUpcomingList" resultType="DashUpcomingDto" parameterType="map">
         WITH NEXT_PLAN AS (
         SELECT
-        S.AS_ID, S.PLAN_DATE,
+        S.AS_ID,
+        S.PLAN_DATE,
         ROW_NUMBER() OVER (PARTITION BY S.AS_ID ORDER BY S.PLAN_DATE) AS RN
         FROM wjlee.dbo.SF_TBL_AS_SCHEDULE S
         JOIN wjlee.dbo.SF_TBL_AS_HEADER   H ON H.AS_ID = S.AS_ID
-        WHERE S.USE_FLAG = '1' AND H.USE_FLAG = '1'
-        AND CONVERT(date, S.PLAN_DATE) >= CAST(GETDATE() AS date)
+        WHERE S.USE_FLAG = '1'
+        AND H.USE_FLAG = '1'
+        -- ✅ 오늘 00:00부터 계획(인덱스 사용 가능)
+        AND S.PLAN_DATE >= DATEADD(day, DATEDIFF(day, 0, GETDATE()), 0)
+        -- ✅ 완료일이 오늘까지인 건 제외 (내일 00:00 이전 완료는 제외)
+        AND (S.COMPLETE_DATE IS NULL
+        OR S.COMPLETE_DATE >= DATEADD(day, DATEDIFF(day, 0, GETDATE()) + 1, 0))
         )
         SELECT TOP ${limit}
         H.AS_ID         AS asId,

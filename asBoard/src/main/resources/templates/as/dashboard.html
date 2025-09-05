@@ -25,9 +25,9 @@
         .legend{background:#fff;padding:6px 8px;border:1px solid #ddd;border-radius:8px;line-height:1.2}
         .legend i{width:12px;height:12px;display:inline-block;margin-right:6px;vertical-align:middle}
 
-        /* Leaflet 범례 스타일: 반투명 흰 배경 + 칩 테두리 */
+        /* Leaflet 범례 스타일: 반투명 흰 배경(배경에만 적용), 칩은 항상 불투명(=고정색) */
         .legend.legend--soft{
-          background: rgba(255,255,255,0.82);
+          background: rgba(255,255,255,0.82); /* ← 배경만 반투명 */
           padding: 8px 10px;
           border-radius: 8px;
           border: 1px solid #e5e7eb; /* slate-200 */
@@ -38,8 +38,8 @@
           display:inline-block; width:12px; height:12px;
           margin-right:6px; vertical-align:middle;
           border: 1px solid rgba(0,0,0,.18); border-radius:2px;
+          /* 칩은 불투명(알파 적용 안 함) */
         }
-
     </style>
 </head>
 <body class="bg-gray-50 p-4 md:p-6 text-sm">
@@ -855,104 +855,139 @@
         }
       }
 
-    /* =========================================================================
-     * 지역별 건수(지도) — /api/dash/geo/sido 사용
-     * ========================================================================= */
-    function renderSidoMap(){
-      const el = $('sidoMap'); if(!el) return;
-
-      const map = L.map('sidoMap', { zoomControl:true }).setView([36.5,127.8],7);
-
       /* =========================================================================
-       * OpenStreetMap 정책상 출처 표기 필수
+       * 지역별 건수(지도) — /api/dash/geo/sido 사용
+       *  - 범례 배경만 반투명, 칩은 불투명(고정색)
+       *  - 구간/색상 명확화: 0–5(연녹) / 5–10(녹) / 10–15(주황) / 15–20(빨강) / 20%+(진빨강)
+       *  - 경계 규칙: [0,5), [5,10), [10,15), [15,20), [20,+∞)
+       *  - 시·도 이름 매칭 보강: trim + 공백제거 + 약칭 매핑
        * ========================================================================= */
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom:18,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
-      }).addTo(map);
+      function renderSidoMap(){
+        const el = $('sidoMap'); if(!el) return;
 
-      // 선택: Leaflet prefix 제거
-      map.attributionControl.setPrefix(false);
+        const map = L.map('sidoMap', { zoomControl:true }).setView([36.5,127.8],7);
 
-      const FULL_TO_SHORT = {
-        '서울특별시':'서울','부산광역시':'부산','대구광역시':'대구','인천광역시':'인천',
-        '광주광역시':'광주','대전광역시':'대전','울산광역시':'울산','세종특별자치시':'세종',
-        '경기도':'경기','강원특별자치도':'강원','충청북도':'충북','충청남도':'충남',
-        '전북특별자치도':'전북','전라남도':'전남','경상북도':'경북','경상남도':'경남','제주특별자치도':'제주'
-      };
-      const getRaw = p => (p && (p['name:ko'] || p.name || p.CTP_KOR_NM || p.SIG_KOR_NM)) || '';
-      const toShort = raw => FULL_TO_SHORT[raw] || raw;
-      const isPolyLike = g => g && (/Polygon/i.test(g.type) || (g.type==='GeometryCollection' && (g.geometries||[]).some(gg=>/Polygon/i.test(gg.type))));
+        /* OSM 타일 + 출처 표기 */
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom:18,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        map.attributionControl.setPrefix(false);
 
-      Promise.all([ fetchJSON('/geo/sido.json'), fetchJSON('/api/dash/geo/sido') ])
-        .then(([geo, rows])=>{
-          const fc = geo?.type==='FeatureCollection' ? geo : (geo?.response?.result?.featureCollection);
-          if(!fc?.features) throw new Error('유효한 GeoJSON 아님');
+        const FULL_TO_SHORT = {
+          '서울특별시':'서울','부산광역시':'부산','대구광역시':'대구','인천광역시':'인천',
+          '광주광역시':'광주','대전광역시':'대전','울산광역시':'울산','세종특별자치시':'세종',
+          '경기도':'경기','강원특별자치도':'강원','충청북도':'충북','충청남도':'충남',
+          '전북특별자치도':'전북','전라남도':'전남','경상북도':'경북','경상남도':'경남','제주특별자치도':'제주'
+        };
 
-          // rows 예시: [{sido:'경기', as_cnt:123}, ...]
-          const counts = {};
-          (rows||[]).forEach(r=>{
-            const k = String(r.sido||'').trim();
-            counts[k] = (counts[k]||0) + Number(r.as_cnt||0);
-          });
+        const getRaw = p => (p && (p['name:ko'] || p.name || p.CTP_KOR_NM || p.SIG_KOR_NM)) || '';
 
-          // === 비중(% of total) 계산 ===
-          const total = Object.values(counts).reduce((a,b)=>a+ b, 0);
-          const pct = v => (total ? (v/total) : 0); // 0~1
+        // 공백 제거 + trim + 약칭 매핑
+        const toShort = (raw) => {
+          const s = String(raw||'').trim().replace(/\s+/g,'');
+          return FULL_TO_SHORT[s] || s;
+        };
 
-          // 권장 구간: 0–5–10–15–20–20%+
-          const breaks = [0, 0.05, 0.10, 0.15, 0.20, 1.0];
-          const colorOfPct = p =>
-              p >= breaks[4] ? '#dc2626' : // 20%+
-              p >= breaks[3] ? '#ea580c' : // 15–20%
-              p >= breaks[2] ? '#f59e0b' : // 10–15%
-              p >= breaks[1] ? '#84cc16' : // 5–10%
-                               '#22c55e';  // 0–5%
+        const cleanName = (s) => toShort(s); // 향후 필요시 추가 규칙 여기에
+
+        const isPolyLike = g => g && (/Polygon/i.test(g.type) || (g.type==='GeometryCollection' && (g.geometries||[]).some(gg=>/Polygon/i.test(gg.type))));
+
+        Promise.all([ fetchJSON('/geo/sido.json'), fetchJSON('/api/dash/geo/sido') ])
+          .then(([geo, rows])=>{
+            const fc = geo?.type==='FeatureCollection' ? geo : (geo?.response?.result?.featureCollection);
+            if(!fc?.features) throw new Error('유효한 GeoJSON 아님');
+
+            // rows 예시: [{sido:'경기', as_cnt:123}, ...]
+            const counts = {};
+            (rows||[]).forEach(r=>{
+              const k = cleanName(r.sido || r.SIDO || r.name);
+              counts[k] = (counts[k]||0) + Number(r.as_cnt||r.count||0);
+            });
+
+            const total = Object.values(counts).reduce((a,b)=>a + b, 0);
+            const pct = v => (total ? (v/total) : 0); // 0~1
+
+            // 구간(경계)과 색상 — 15~20%는 '빨강', 20%+는 '더 진한 빨강'
+            const breaks = [0, 0.05, 0.10, 0.15, 0.20]; // 마지막 구간의 상한은 +∞ 취급
+            const colors = ['#86efac', '#22c55e', '#f59e0b', '#ef4444', '#b91c1c'];
+            // p ∈ [breaks[i], breaks[i+1]) → colors[i],  p ≥ breaks[4] → colors[4]
+            function colorOfPct(p){
+              if (p >= breaks[4]) return colors[4];
+              if (p >= breaks[3]) return colors[3];
+              if (p >= breaks[2]) return colors[2];
+              if (p >= breaks[1]) return colors[1];
+              return colors[0];
+            }
 
             const layer = L.geoJSON(fc, {
               filter: f => isPolyLike(f.geometry),
               style: f => {
-                const name = toShort(getRaw(f.properties));
+                const name = cleanName(getRaw(f.properties));
                 const v    = counts[name] || 0;
                 const p    = pct(v);
-                return { color:'#6b7280', weight:1, fillColor:colorOfPct(p), fillOpacity:.45 };
+                return { color:'#6b7280', weight:1, fillColor: colorOfPct(p), fillOpacity:.6 }; // 지도는 .6
               },
               onEachFeature: (f,l) => {
-                const name = toShort(getRaw(f.properties));
+                const name = cleanName(getRaw(f.properties));
                 const v    = counts[name] || 0;
                 const p    = pct(v) * 100;
                 l.bindTooltip(`${name} : ${v}건 (${p.toFixed(1)}%)`, {sticky:true, direction:'top'});
-                l.on('mouseover', ()=> l.setStyle({weight:2, fillOpacity:.55}));
-                l.on('mouseout',  ()=> l.setStyle({weight:1, fillOpacity:.45}));
+                l.on('mouseover', ()=> l.setStyle({weight:2, fillOpacity:.7}));
+                l.on('mouseout',  ()=> l.setStyle({weight:1, fillOpacity:.6}));
                 l.on('click',     ()=> location.href = `/as/list?q=${encodeURIComponent(name)}`);
               }
             }).addTo(map);
 
-            // --- 범례(반투명 배경 + 칩 테두리) ---
+            // --- 디버그: 콘솔에서 각 지역의 퍼센트/버킷/색상 확인 ---
+            try{
+              const debug = Object.keys(counts).map(k=>{
+                const v = counts[k]; const p = total ? (v/total) : 0;
+                let bucket = '';
+                if (p >= breaks[4]) bucket = '20%+';
+                else if (p >= breaks[3]) bucket = '15–20%';
+                else if (p >= breaks[2]) bucket = '10–15%';
+                else if (p >= breaks[1]) bucket = '5–10%';
+                else bucket = '0–5%';
+                return { region:k, count:v, percent:(p*100).toFixed(2)+'%', bucket, color: colorOfPct(p) };
+              });
+              console.table(debug);
+            }catch(_){}
+
+            // --- 범례(배경만 반투명, 칩은 불투명) ---
             const legend = L.control({position:'bottomright'});
             legend.onAdd = function(){
               const div = L.DomUtil.create('div','legend legend--soft');
               let html = '<b>AS 건수 비중 (%)</b><br>';
-              for (let i=0;i<breaks.length-1;i++){
-                const from = breaks[i], to = breaks[i+1];
-                const mid  = (from + Math.min(to, 0.9999)) / 2;
-                const label = (to === 1.0)
-                  ? `${Math.round(from*100)}%+`
-                  : `${Math.round(from*100)}–${Math.round(to*100)}%`;
-                html += `<i style="background:${colorOfPct(mid)}"></i> ${label}<br>`;
-              }
+
+              // 표시 라벨: 0–5, 5–10, 10–15, 15–20, 20%+
+              const labels = [
+                { from:0, to:5  },
+                { from:5, to:10 },
+                { from:10,to:15 },
+                { from:15,to:20 },
+                { from:20, to:null } // null => +
+              ];
+              labels.forEach(({from,to})=>{
+                // 중간값으로 칩 색상 결정 (칩은 불투명)
+                const mid = (to==null) ? 0.25 /* 25% 가정 */ : ((from/100 + to/100) / 2);
+                const chip = colorOfPct(mid);
+                const text = (to==null) ? `${from}%+` : `${from}–${to}%`;
+                html += `<i style="background:${chip}"></i> ${text}<br>`;
+              });
+
               div.innerHTML = html; return div;
             };
             legend.addTo(map);
 
-          setTimeout(()=>map.invalidateSize(),0);
-        })
-        .catch(e=>{
-          console.error(e);
-          el.insertAdjacentHTML('afterend','<div class="text-red-600 text-sm mt-2">지역별 지도 데이터를 불러오지 못했습니다.</div>');
-        });
-    }
+            setTimeout(()=>map.invalidateSize(),0);
+          })
+          .catch(e=>{
+            console.error(e);
+            el.insertAdjacentHTML('afterend','<div class="text-red-600 text-sm mt-2">지역별 지도 데이터를 불러오지 못했습니다.</div>');
+          });
+      }
 
       /* =========================================================================
        * 부트스트랩
