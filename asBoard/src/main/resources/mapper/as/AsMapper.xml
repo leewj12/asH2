@@ -392,15 +392,26 @@
             H.AS_MANAGER, H.STATUS_FLAG, H.AS_RESULT, H.ETC, H.REG_DATE, H.UPD_DATE, H.USE_FLAG,
             F.FARM_NAME, F.REGION_NAME, F.FARMER_NAME, F.PHONE_NUMB, F.FARM_ADDR1, F.FARM_ADDR2, F.PROJECT_NAME,
             ISNULL(FUTURE.PLAN_DATE, ANYPLAN.PLAN_DATE) AS PLAN_DATE,
+
             CASE
-                WHEN H.STATUS_FLAG = 0 THEN '보류'
-                WHEN STAT.TOTAL = 0 THEN '대기'
-                WHEN STAT.DONE_CNT = STAT.TOTAL THEN '완료'
-                WHEN STAT.FIRST_PENDING_PLAN <  CAST(GETDATE() AS date) THEN '지연'
-                WHEN STAT.FIRST_PENDING_PLAN = CAST(GETDATE() AS date)  THEN '임박'
-                WHEN STAT.DONE_CNT > 0 THEN '진행중'
-                ELSE '대기'
+              WHEN H.STATUS_FLAG = N'0' THEN N'보류'                      -- 보류 최우선
+              WHEN STAT.TOTAL = 0 THEN N'대기'                            -- 일정 없음
+              WHEN STAT.DONE_CNT = STAT.TOTAL AND STAT.TOTAL > 0 THEN N'완료'  -- 전부 완료
+
+              -- ↓ 진행중보다 우선: 미완료가 있고 마감이 지났으면 '지연', 오늘이면 '임박'
+              WHEN STAT.DONE_CNT < STAT.TOTAL
+                   AND CONVERT(date, STAT.FIRST_PENDING_PLAN) <  CAST(GETDATE() AS date)
+                THEN N'지연'
+              WHEN STAT.DONE_CNT < STAT.TOTAL
+                   AND CONVERT(date, STAT.FIRST_PENDING_PLAN) =  CAST(GETDATE() AS date)
+                THEN N'임박'
+
+              -- 완료, 대기 일정이 공존(임박, 지연된 일정 없음)
+              WHEN STAT.DONE_CNT > 0 AND STAT.DONE_CNT < STAT.TOTAL THEN N'진행중'
+
+              ELSE N'대기'
             END AS STATUS_LABEL
+
         FROM wjlee.dbo.SF_TBL_AS_HEADER H
         LEFT JOIN SMLF_MST.dbo.SF_TBL_FARM F ON H.FARM_CODE = F.FARM_CODE
         OUTER APPLY (SELECT TOP 1 PLAN_DATE
@@ -765,15 +776,26 @@
             H.USE_FLAG,
             H.STATUS_FLAG,
             ISNULL(FUTURE_SCH.PLAN_DATE, ANY_SCH.PLAN_DATE) AS PLAN_DATE,
+
             CASE
-              WHEN H.STATUS_FLAG = N'0' THEN '보류'
-              WHEN STAT.TOTAL = 0 THEN '대기'
-              WHEN STAT.DONE_CNT = STAT.TOTAL THEN '완료'
-              WHEN STAT.FIRST_PENDING_PLAN <  CAST(GETDATE() AS DATE) THEN '지연'
-              WHEN STAT.FIRST_PENDING_PLAN = CAST(GETDATE() AS DATE)  THEN '임박'
-              WHEN STAT.DONE_CNT > 0 THEN '진행중'
-              ELSE '대기'
+              WHEN H.STATUS_FLAG = N'0' THEN N'보류'                      -- 강제 보류 최우선
+              WHEN STAT.TOTAL = 0 THEN N'대기'                            -- 일정 자체가 없음
+              WHEN STAT.DONE_CNT = STAT.TOTAL AND STAT.TOTAL > 0 THEN N'완료'  -- 전부 완료
+
+              -- ↓ 진행중보다 우선: 미완료가 있고 마감이 지났으면 '지연', 오늘이면 '임박'
+              WHEN STAT.DONE_CNT < STAT.TOTAL
+                   AND CONVERT(date, STAT.FIRST_PENDING_PLAN) <  CAST(GETDATE() AS date)
+                THEN N'지연'
+              WHEN STAT.DONE_CNT < STAT.TOTAL
+                   AND CONVERT(date, STAT.FIRST_PENDING_PLAN) =  CAST(GETDATE() AS date)
+                THEN N'임박'
+
+              -- 완료, 대기 일정이 공존(임박, 지연된 일정 없음)
+              WHEN STAT.DONE_CNT > 0 AND STAT.DONE_CNT < STAT.TOTAL THEN N'진행중'
+
+              ELSE N'대기'
             END AS STATUS_LABEL
+
           FROM  wjlee.dbo.SF_TBL_AS_HEADER H
           LEFT  JOIN SMLF_MST.dbo.SF_TBL_FARM  F ON H.FARM_CODE = F.FARM_CODE
 
