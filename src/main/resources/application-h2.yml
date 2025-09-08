@@ -16,6 +16,7 @@ spring:
       data-locations: classpath:db/h2/data.sql
 
 mybatis:
+  mapper-locations: classpath:/mapper/h2/**/*.xml  # 매퍼 XML 위치
   type-handlers-package: com.inpro.asBoard.config
 
 # H2 콘솔(로컬 확인용)

@@ -3,6 +3,13 @@ spring:
   config:
     activate:
       on-profile: prod
+  # ① 기본(프라이머리) DataSource: MSSQL — 계정은 secrets로 분리
+  datasource:
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url: jdbc:sqlserver://10.131.121.110:1433;databaseName=SMLF_MST;encrypt=true;trustServerCertificate=true
+
+mybatis:
+  mapper-locations: classpath:/mapper/ms/**/*.xml  # 매퍼 XML 위치
 
 asboard:
   file:
