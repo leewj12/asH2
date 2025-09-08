@@ -5,7 +5,7 @@ spring:
       on-profile: h2
   datasource:
     # 파일 모드(컨테이너 재시작 시 유지될 수도/안 될 수도… 데모용으로만 생각)
-    url: jdbc:h2:mem:./data/demo;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:asboard;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -22,3 +22,9 @@ mybatis:
 # H2 콘솔(로컬 확인용)
 spring.h2.console.enabled: false
 #spring.h2.console.path: /h2-console
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-change-me}        # HS256 시크릿 키(32자 이상 권장, Base64 가능)
+    access-exp-seconds: 900                 # 액세스 토큰 만료(초) 15분
+    refresh-exp-seconds: 1209600              # 리프레시 토큰 만료(초) 14일
