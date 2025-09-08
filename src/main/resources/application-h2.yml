@@ -5,7 +5,7 @@ spring:
       on-profile: h2
   datasource:
     # 파일 모드(컨테이너 재시작 시 유지될 수도/안 될 수도… 데모용으로만 생각)
-    url: jdbc:h2:file:./data/demo;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:mem:./data/demo;MODE=MSSQLServer;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -14,6 +14,9 @@ spring:
       mode: always
       schema-locations: classpath:db/h2/schema.sql
       data-locations: classpath:db/h2/data.sql
+
+mybatis:
+  type-handlers-package: com.inpro.asBoard.config
 
 # H2 콘솔(로컬 확인용)
 spring.h2.console.enabled: true

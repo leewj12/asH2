@@ -3,60 +3,34 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.inpro.asBoard.user.UserMapper">
 
-    <!--//========================================================================
-    // 1. 사용자 조회(아이디로)
-    // 2. Param : username
-    // 3. 설명 : USERNAME으로 단일 사용자 조회
-    // 4. 작성 : wjlee(25.09.01)
-    // 5. 수정 :
-    //========================================================================-->
-    <select id="findByUsername" parameterType="string" resultType="UserAccount">
-        SELECT USER_ID   AS userId,
-        USERNAME  AS username,
-        PASSWORD_HASH AS passwordHash,
-        ROLES     AS roles,
-        ACTIVE    AS active
-        FROM   wjlee.dbo.SF_TBL_USERS   -- 스키마/테이블명은 환경에 맞게
-        WHERE  USERNAME = #{username}
-    </select>
-
-    <!--//========================================================================
-    // 1. 사용자 엔티티 매핑
-    // 2. Param :
-    // 3. 설명 : SF_TBL_USERS 컬럼 → UserAccount 필드 매핑 정의
-    // 4. 작성 : wjlee(25.09.01)
-    // 5. 수정 :
-    //========================================================================-->
+    <!-- 엔티티 매핑 -->
     <resultMap id="UserAccountMap" type="UserAccount">
-        <id property="userId" column="USER_ID"/>
-        <result property="username" column="USERNAME"/>
+        <id     property="userId"      column="USER_ID"/>
+        <result property="username"    column="USERNAME"/>
         <result property="passwordHash" column="PASSWORD_HASH"/>
-        <result property="roles" column="ROLES"/>
-        <result property="active" column="ACTIVE"/>
-        <result property="regDate" column="REG_DATE"/>
+        <result property="roles"       column="ROLES"/>
+        <result property="active"      column="ACTIVE"/>
+        <result property="regDate"     column="REG_DATE"/>
     </resultMap>
 
-    <!--//========================================================================
-    // 1. 전체 사용자 수 조회
-    // 2. Param :
-    // 3. 설명 : SF_TBL_USERS 테이블의 전체 행 수 반환
-    // 4. 작성 : wjlee(25.09.01)
-    // 5. 수정 :
-    //========================================================================-->
-    <select id="countAll" resultType="int">
-        SELECT COUNT(*) FROM wjlee.dbo.SF_TBL_USERS
+    <!-- 1) 사용자 조회 (username) -->
+    <select id="findByUsername" parameterType="string" resultMap="UserAccountMap">
+        SELECT
+        USER_ID, USERNAME, PASSWORD_HASH, ROLES, ACTIVE, REG_DATE
+        FROM USERS
+        WHERE USERNAME = #{username}
     </select>
 
-    <!--//========================================================================
-    // 1. 사용자 등록
-    // 2. Param : userAccount(body, required, UserAccount)
-    // 3. 설명 : 신규 사용자 INSERT (useGeneratedKeys=true)
-    // 4. 작성 : wjlee(25.09.01)
-    // 5. 수정 :
-    //========================================================================-->
+    <!-- 2) 전체 사용자 수 -->
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM USERS
+    </select>
+
+    <!-- 3) 사용자 등록 -->
     <insert id="insert" parameterType="UserAccount" useGeneratedKeys="true" keyProperty="userId">
-        INSERT INTO wjlee.dbo.SF_TBL_USERS (USERNAME, PASSWORD_HASH, ROLES, ACTIVE)
+        INSERT INTO USERS (USERNAME, PASSWORD_HASH, ROLES, ACTIVE)
         VALUES (#{username}, #{passwordHash}, #{roles}, #{active})
+        <!-- REG_DATE 는 테이블 DEFAULT CURRENT_TIMESTAMP 사용 -->
     </insert>
 
 </mapper>
