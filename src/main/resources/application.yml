@@ -4,7 +4,7 @@ server:
 
 spring:
   profiles:
-    active: dev     # 기본 활성 프로필
+    active: h2     # 기본 활성 프로필
   config:
     import: "optional:classpath:/application-secrets.yml"   # 비밀값 분리
   servlet:
