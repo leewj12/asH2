@@ -19,5 +19,5 @@ mybatis:
   type-handlers-package: com.inpro.asBoard.config
 
 # H2 콘솔(로컬 확인용)
-spring.h2.console.enabled: true
-spring.h2.console.path: /h2-console
+spring.h2.console.enabled: false
+#spring.h2.console.path: /h2-console
